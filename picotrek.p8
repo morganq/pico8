@@ -5,35 +5,29 @@ __lua__
 -- by morganquirk
 
 -- TODO
--- better sounds
--- more sounds
--- enemy ship types
--- make hacks better
--- quantum weapon
+-- levels
+-- hack lockin sound
+-- win game
+-- if possible: title screen
+-- if possible: show icon on hal screen for other player
 
 
 ---- CONSTANTS ----
 screen_height = 60
+screen_halfheight = 30
 
 walls = 130
 maxspeed = 0.2
 accel = 0.003
 rotspeed = 0.0075
 
-powrows = {'reserve', 'weapons', 'shields', 'sensors', 'engines'}
-powcaps = {8, 5, 5, 5, 5}
-
-hax_symbols = {fire=139, hit=140, face=145, hit_a=146, hit_b=147, lock=148, scan=149}
-
-darken = {
-    0,  0,  0,  1,
-    2,  1,  5,  6,
-    2,  4,  9, 3,
-    13, 1, 8, 9
-}
+-- Using split to save on token count
+powrows = split('reserve,weapons,shields,sensors,engines')
+powcaps = split('8,5,5,5,5')
+darken = split("0,0,0,1,2,1,5,6,2,4,9,3,13,1,8,9")
 
 playercolors = {8, 12}
-level = 1
+
 
 ---- LEVEL DEFINITIONS ----
 -- One slow enemy, one main asteroid
@@ -43,21 +37,24 @@ level = 1
 -- 2 big enemies, 4 bugs
 
 shiptypes = {
-    bug='-0.15,3;-0.05,0;0,2;0.05,0;0.15,3;0.5,3:20:1:4:2',
+    bug='-0.15,3;-0.05,0;0,2;0.05,0;0.15,3;0.5,3:20:1:3:2',
     cruiser='-0.05,5;0.05,5;0.4,7;0.6,7:60:2:1:4',
-    battleship='0,7;0.2,5;0.2,1;0.4,9;-0.4,9;-0.2,1;-0.2,7:80:3:3:5',
-    station='0,9;0.125,9;0.25,9;0.375,9;0.5,9;0.625,9;0.75,9;0.825,9;0,9;0,3;0.125,3;0.25,3;0.375,3;0.5,3;0.625,3;0.75,3;0.825,3;1.0,3:120:2:0:9'
+    station='0,9;0.125,9;0.25,9;0.375,9;0.5,9;0.625,9;0.75,9;0.825,9;0,9;0,3;0.125,3;0.25,3;0.375,3;0.5,3;0.625,3;0.75,3;0.825,3;1.0,3:120:2:0:9',
+    mothership='0,11;0.2,5;0.2,3;0.4,12;-0.4,12;-0.2,3;-0.2,11:280:4:1.5:9',
 }
 
 levels = {
-    "a,42,3,10;a,-10,-40,12;a,-34,40,3;a,-59,3,4;a,62,60,6;cruiser,-60,-40,10",
-    "a,42,3,10;a,-10,-40,12;a,-34,40,3;a,-59,3,4;a,62,60,6;bug,100,-10,10;cruiser,-90,-30,14",
-    "a,42,3,10;a,-10,-40,12;a,-34,40,3;a,-59,3,4;a,62,60,6;bug,100,-10,10;cruiser,90,-30,14;cruiser,40,30,15;cruiser,20,60,13",
+    "cruiser,60,-50,10;a,60,-100,5;a,10,-45,7;a,-50,-80,12;a,65,-15,5;a,-50,-25,7;a,40,40,4;a,85,5,10;a,-5,60,20;a,-55,45,5",
+    "cruiser,80,-50,14;cruiser,-80,50,9;a,-40,-20,20;a,-35,-70,5;a,50,50,24;a,60,-35,10",
+    "bug,-100,-10,14;bug,100,110,15;station,80,100,9;a,-75,0,5;a,80,25,15;a,10,80,15;a,5,-30,3;a,-15,-50,3;a,45,-65,4",
+    "cruiser,-100,-100,9;bug,-85,-95,15;cruiser,0,100,10;bug,15,95,14;a,-55,25,27;a,-85,-15,18;a,-80,-30,15;a,-50,-44,10;a,0,-45,3;a,40,-20,3;a,60,60,5",
+    "mothership,0,-90,8;station,-90,20,10;cruiser,90,20,9;bug,-15,-80,15;bug,15,-80,14;a,-5,-50,10;a,-25,-45,8;a,30,-35,12;a,45,5,9;a,-15,45,6",
 }
+
+level = 1
 
 
 ---- GLOBALS ----
-debugs = {}
 
 persistent = {
     hull = 100,
@@ -66,13 +63,13 @@ persistent = {
     bonus_cores = 2
 }
 
-function init_level(i)
+function init_level()
     playership = {
-        pos = vec(0,0),
-        vel = vec(0,0),
+        pos = vec(),
+        vel = vec(),
         angle = -0.25,
-        shields = {12,12,12,12},
-        hull = persistent.hull,
+        shields = split("12,12,12,12"),
+        hull = 1,--persistent.hull,
         radius = 3,
         mass = 1,
         loot = persistent.loot,
@@ -88,7 +85,7 @@ function init_level(i)
         hal = make_hal_control(),
         take_damage = player_take_damage
     }
-    shake = vec(0,0)
+    shake = vec()
     shaket = 1
     win_time = 0
     bought = 0
@@ -100,11 +97,9 @@ function init_level(i)
     ents = {}
     notices = {}
 
-    ts = 0 -- time in seconds
     tf = 0 -- time in frames
 
-    local lev = levels[i]
-    for e in all(split(lev,";")) do
+    for e in all(split(levels[level],";")) do
         local params = split(e,',')
         if params[1] == 'a' then
             add(ents, make_asteroid(params[2], params[3], params[4]))
@@ -116,7 +111,6 @@ function init_level(i)
     set_screen(1, 'map')
     set_screen(2, 'pow')
     generate_entgrid()
-    level = i
 end
 
 ---- UTIL ----
@@ -188,8 +182,8 @@ vec_metatable = {
 
 function vec(x,y)
     local v = {
-        x=x,
-        y=y,
+        x=x or 0,
+        y=y or 0,
     }
     setmetatable(v, vec_metatable)
     return v
@@ -245,11 +239,10 @@ end
 
 -- Given a player (to determine top or bottom screen)
 -- return a point on the screen based on a point in the world.
-function mappt(player, point, offset)
+function mappt(player, point)
     local scale = pow_map_scale()
-    local center = vec(64, player_ui_y(player) + screen_height \ 2)
-    offset = offset or vec(0,0)
-    delta = (offset - playership.pos) * scale
+    local center = vec(64, player_ui_y(player) + screen_halfheight)
+    delta = playership.pos * -scale
     return point * scale + delta + center
 end
 
@@ -261,8 +254,7 @@ end
 function mappoly(player, points, offset, color)
     local scale = pow_map_scale()
     local y = player_ui_y(player)
-    local center = vec(64, y + screen_height \ 2)
-    offset = offset or vec(0,0)
+    local center = vec(64, y + screen_halfheight)
     color = color or 11
     delta = (offset - playership.pos) * scale
     for i = 1, #points do
@@ -308,7 +300,7 @@ end
 -- Has a quantum power core in a given system?
 function has_quantum(name) return count(playership.pow[name], 'q') > 0 end
 
-function get_mgun_range() return 20 + 20 * #playership.pow.sensors end
+function get_mgun_range() return 20 + 20 * #playership.pow.weapons end
 
 function get_enemy_angles()
     local enemies = {}
@@ -338,9 +330,9 @@ function player_take_damage(source)
     local bounce = false
     local shield_damage = min(playership.shields[dir_index], source.damage)
     if playership.shields[dir_index] > 12 and source.is_laser then
-        local l2 = make_laser(playership, source.head, source.from.pos, darken[source.color-1], source.damage)
+        local l2 = make_laser(playership, source.head, source.from.pos, darken[source.color+1], source.damage)
         add(lasers, l2)
-        sfx(7)
+        sfx(23)
         bounce = true
     end
     playership.shields[dir_index] -= shield_damage
@@ -350,17 +342,20 @@ function player_take_damage(source)
         shake = vnorm(delta) * (damage / 4 + 2)
         shaket = 0
         recolor = palorange
-        sfx(1)
-        if playership.hull < 25 then sfx(2) end
+        sfx(17)
+        if playership.hull < 25 then sfx(18) end
     else
         shake = vnorm(delta) * 2
         shaket = 0.5
         recolor = palgreen
-        if not bounce then sfx(0) end
+        if not bounce then sfx(16) end
     end
     damage_dir = dir_index
+    if source.from.is_enemy then
+        hax_add_symbol(144, source.from)
+    end
     if playership.hull < 0 then
-        sfx(11)
+        sfx(27)
         playership.dead = true
     end
 end
@@ -369,10 +364,9 @@ end
 function make_ent(x,y)
     local e = {
         pos = vec(x,y),
-        vel = vec(0,0),
+        vel = vec(),
         hull = 100,
         radius = 2,
-        stuck = false,
         mass = 1,
         dead = false,
         type=nil
@@ -395,7 +389,6 @@ end
 -- Asteroid "constructor"
 function make_asteroid(x, y, rad)
     local a = make_ent(x,y)
-    a.stuck = false
     a.points = {}
     a.mass = rad ^ 1.65
     a.radius = rad
@@ -440,8 +433,8 @@ function generate_entgrid()
         end
     end
     for e in all(ents_plus_me()) do
-        local gpx = flr(e.pos.x \ eg_size)
-        local gpy = flr(e.pos.y \ eg_size)
+        local gpx = e.pos.x \ eg_size
+        local gpy = e.pos.y \ eg_size
         add(entgrid[gpx..','..gpy], e)
     end
 end
@@ -470,7 +463,7 @@ function do_collisions()
         add(already_tested,a)
         -- Look only at nearby entities!
         for b in all(nearby_ents_plus_me(a.pos)) do
-            if count(already_tested, b) == 0 and not (a.stuck and b.stuck) then
+            if count(already_tested, b) == 0 then
                 local rad = a.radius + b.radius
                 local delta = b.pos - a.pos
                 local betsq = vdsq(delta)
@@ -585,8 +578,7 @@ function laser_draw(player, l)
     local dist = approx_dist(delta.x, delta.y)
     local n = vec(delta.x / dist, delta.y / dist)
     local fwd = clamp((l.flytime - l.damage * 1.5) * l.speed,0, dist)
-    local back = l.start + n * fwd
-    local p1 = mappt(player, back)
+    local p1 = mappt(player, l.start + n * fwd)
     local p2 = mappt(player, l.head)
     line(p1.x, p1.y, p2.x, p2.y, l.color)
     if l.hit then
@@ -601,19 +593,13 @@ function laser_update(l)
     l.flytime += 1
     
     if not l.done then
-        
-        local dp = vdsq(l.head - playership.pos)
-        if dp < 45 ^ 2 then
-            --sfx(3, nil, clamp(sqrt(dp) / 5, 0, 5),1)
-        end
         for i = 1, l.speed, step do
             l.i = min(l.i + step / dist_total, 1)
             l.head = delta * l.i + l.start
             for e in all(nearby_ents_plus_me(l.head)) do
                 if e != l.from then
                     local rad = 1 + e.radius
-                    local between = e.pos - l.head
-                    if vdsq(between) < rad * rad then
+                    if vdsq(e.pos - l.head) < rad * rad then
                         l.done = true
                         l.hit = true
                         if e.take_damage != nil then e.take_damage(l) end
@@ -645,10 +631,10 @@ function make_enemy(name,x,y,color)
     ship.radius = params[5]
     ship.target = playership
     ship.shields = {0,0,0,0}
-    ship.nav_target = vec(0,0)
+    ship.nav_target = vec()
     ship.ai_state = "idle"
     ship.color = color
-    ship.loot = 100 + flr(rnd(200))
+    ship.loot = 60 + rnd(100)
     --ship.downloaded = false
     ship.hack_time = 0
     ship.hull = params[2]
@@ -669,8 +655,6 @@ function make_enemy(name,x,y,color)
         if ship.notice then
             print(ship.notice, near.x, near.y, ship.color)
         end
-        --local tp = mappt(player, ship.nav_target)
-        --circ(tp.x, tp.y, 2, 8)
     end
     ship.update = function()
         enemy_update(ship)
@@ -680,20 +664,20 @@ function make_enemy(name,x,y,color)
     end
     ship.take_damage = function(l) 
         ship.hit_time = 30
-        sfx(10)
+        sfx(26)
         ship.hull -= l.damage
         ship.notice = ceil(ship.hull)
         if l.source_label == 'a' then
-            hax_add_symbol('hit_a', ship)
+            hax_add_symbol(146, ship)
             playership['p1_hit_enemy_time'] = 10
         elseif l.source_label == 'b' then
-            hax_add_symbol('hit_b', ship)
+            hax_add_symbol(147, ship)
             playership['p2_hit_enemy_time'] = 10
         elseif l.source_label == 'mgun' then
             playership['mgun_hit_enemy_time'] = 10
         end
         if ship.hull <= 0 then
-            sfx(11,nil,7)
+            sfx(27,nil,7)
             ship.dead = true
             del(ents, ship)
         end
@@ -708,7 +692,7 @@ function enemy_update(ship)
         ship.notice = ""
     end
     ship.hack_time -= 1
-    if ship.hack_time > 0 then
+    if ship.hack_time > 0 and tf % 10 == 0 then
         ship.notice = "?"
     elseif ship.hack_time == 0 then
         ship.notice = ""
@@ -717,20 +701,13 @@ function enemy_update(ship)
     local target = ship.target
     if target == nil then ship.state = 'idle' end
     if ship.state == "combat" then
-        if tf % 240 == 0 then
+        if tf % 90 == 0 then
             ship.notice = ""
-            done = false
-            while not done do
-                pt = angle2vec(rnd()) * (10 + rnd(20)) + target.pos
-                ship.nav_target = pt
-                done = true
-            end
+            ship.nav_target = angle2vec(rnd()) * (10 + rnd(20)) + target.pos
         end
     else
         if tf % 240 == 5 then
-            pt = ship.idle_pos + angle2vec(rnd()) * (10 + rnd(20))
-            ship.nav_target = pt
-            done = true
+            ship.nav_target = ship.idle_pos + angle2vec(rnd()) * (10 + rnd(20))
         end
     end
     local delta = ship.nav_target - ship.pos
@@ -779,12 +756,12 @@ function enemy_update(ship)
     ship.vel = vclamp(ship.vel, 0.1 * ship.speed_level)
 
     if tf % 200 == 0 and has_quantum('sensors') then
-        hax_add_symbol('scan', ship)
+        hax_add_symbol(149, ship)
     end
 
     player_delta = playership.pos - ship.pos
-    if approx_dist(player_delta.x, player_delta.y) < 20 and tf % 80 == 0 then
-        hax_add_symbol('face', ship)
+    if approx_dist(player_delta.x, player_delta.y) < 30 and tf % 90 == 0 then
+        hax_add_symbol(145, ship)
     end    
 
     if target != nil then
@@ -802,15 +779,15 @@ function enemy_update(ship)
                 local ldist = dist * ((rnd(1) - 0.5) * 0.25 + 1.25)
                 local dmg = flr(rnd(7)) + 5
                 add(lasers,make_laser(ship, ship.pos, ship.pos + angle2vec(theta) * ldist, ship.color, dmg))
-                hax_add_symbol('fire', ship)
-                sfx(8, nil, 9 - min(dmg\1.5,9))
+                hax_add_symbol(143, ship)
+                sfx(24, nil, 9 - min(dmg\1.5,9))
             end
             if dist > 110 then
                 ship.state = "idle"
                 ship.idle_pos = vec(ship.pos.x, ship.pos.y)
             end
         else
-            if dist < 70 then
+            if dist < 60 then
                 ship.state = "combat"
                 ship.notice = "!"
             end
@@ -827,10 +804,13 @@ end
 
 function hal_draw(player)
     local y = player_ui_y(player)
-    print("MAP", 58, y + 8, 11)
-    print("POW", 58, y + screen_height - 14, 12)
-    print("WEP", 16, y + screen_height \ 2 - 2, 8)
-    print("HAX", 101, y + screen_height \ 2 - 2, 7)
+    spr(192, 48, y + 2, 4, 3)
+    spr(196, 48, y + 34, 4, 3)
+    spr(200, 2, y + 18, 4, 3)
+    spr(204, 94, y + 18, 4, 3)
+    rectfill(59,25 + y,68,34 + y,0)
+    rect(58,24 + y,69,35 + y,7)
+    spr(75 + player, 60,26 + y)
 end
 
 function hal_update(player)
@@ -900,9 +880,9 @@ function map_draw(player)
     function map_draw_ship_line(angle, p)
             line(
                 64 + cos(angle + playership.angle) * 6,
-                screen_height / 2 + y + -sin(angle + playership.angle) * 6,
+                screen_halfheight + y + -sin(angle + playership.angle) * 6,
                 64 + cos(angle + playership.angle) * 12,
-                screen_height / 2 + y + -sin(angle + playership.angle) * 12,
+                screen_halfheight + y + -sin(angle + playership.angle) * 12,
                 playercolors[p]
             )   
     end
@@ -947,11 +927,11 @@ function map_draw(player)
         local pxo = cos(i / num_points - 0.25)
         local pyo = -sin(i / num_points - 0.25)
         local px = pxo * 30 * scale + 64
-        local py = pyo * 30 * scale + y + screen_height / 2
+        local py = pyo * 30 * scale + y + screen_halfheight
         pset(px, py, 6)
         if (i / num_points * 4) % 1 == 0 then
             local ptx = pxo * 25 + 64
-            local pty = pyo * 25 + y + screen_height / 2
+            local pty = pyo * 25 + y + screen_halfheight
             spr(i \ 3, ptx - 4, pty - 4)
         end
     end
@@ -970,10 +950,10 @@ function map_update(player)
     pthrust = 'p'..player..'thrust'
     if btn(0, player-1) then
         map[psteer] = -1
-        sfx(5)
+        sfx(21,2)
     elseif btn(1, player-1) then
         map[psteer] = 1
-        sfx(5)
+        sfx(21,2)
     else
         map[psteer] = 0
     end
@@ -1021,7 +1001,7 @@ function make_pow_control()
     for i = 1,persistent.bonus_quantum do add(screen.reserve, 'q') end
     screen.weapons = {'n'}
     screen.shields = {'n'}
-    screen.sensors = {'n'}
+    screen.sensors = {'n','n','n','n','n'}
     screen.engines = {'n'}
     return screen
 end
@@ -1065,12 +1045,14 @@ function pow_draw(player)
         end
         for j = 1, #playership.pow[name] do
             if pickup != nil and pickup.x == j-1 and pickup.y == i-1 then        
-                spr(7 + flr((ts * 4) % 2), 37 + j * 8, ry - 1)
+                spr(7 + flr((tf / 7) % 2), 37 + j * 8, ry - 1)
             else
                 local value = playership.pow[name][j]
                 local si = 6
                 if value == 'q' then
                     si = 22 + (tf / 10) % 4
+                elseif value == 'd' then
+                    si = 40 + (tf / 4) % 4
                 end 
                 spr(si, 37 + j * 8, ry - 1)
             end
@@ -1082,10 +1064,10 @@ function pow_draw(player)
         if pow['p'..p..'row'] != nil then
             local r,c = pow['p'..p..'row'], pow['p'..p..'col']
             pos = pow_rctoxy(r,c)
-            spr(3 + p + (16 * flr((ts * 4) % 2)), pos.x, pos.y)
+            spr(3 + p + (16 * flr((tf  \ 7) % 2)), pos.x, pos.y)
             if p == player then
                 if pow['p'..p..'pickup'] != nil then
-                    spr(7 + flr((ts * 4) % 2), pos.x, pos.y)
+                    spr(7 + flr((tf \ 7) % 2), pos.x, pos.y)
                 end
             end
         end
@@ -1112,23 +1094,24 @@ function pow_update(player)
     pow[prow] = clamp(pow[prow], 0, 4)
     pow[pcol] = clamp(pow[pcol], 0, powcaps[pow[prow]+1]-1)
     local r = pow[prow]
-    local c = pow[pcol]    
-    if pow[pickup] == nil then
+    local c = pow[pcol]
+    local pick = pow[pickup]
+    if pick == nil then
         if btnp(5, player-1) then
             local num = #pow[powrows[r+1]]
             if c < num then
                 pow[pickup] = vec(c, r)
-                sfx(6)
+                sfx(22)
             end
         end
     else
         if btnp(5, player-1) then
             if #pow[powrows[r+1]] < powcaps[r+1] then
-                local value = pow[powrows[pow[pickup].y + 1]][pow[pickup].x + 1]
-                deli(pow[powrows[pow[pickup].y + 1]], pow[pickup].x + 1)
+                local pick = pow[pickup]
+                add(pow[powrows[r+1]], pow[powrows[pick.y + 1]][pick.x + 1])
+                deli(pow[powrows[pick.y + 1]], pick.x + 1)
                 pow[pickup] = nil
-                add(pow[powrows[r+1]], value)
-                sfx(6)
+                sfx(22)
             end
         end
     end
@@ -1160,8 +1143,9 @@ end
 function wep_draw(player)
     local y = player_ui_y(player)
     rectfill(0, y, 127, screen_height + y - 1, 2)    
+    -- could remove...
     if #playership.pow.weapons == 0 then
-        print("unpowered", 46, y + screen_height \ 2 - 2, 6)
+        print("unpowered", 46, y + screen_halfheight - 2, 6)
         return
     end
     local rows = {4, 22, 40}
@@ -1195,6 +1179,12 @@ function wep_draw(player)
         local ang = playership.wep['phaser'..i..'angle']
         local clk = flr(ang * 12)
         clip(42, rows[i] + y + 2, 28, 14)
+        if has_quantum("weapons") then
+            for t in all(get_enemy_angles()) do
+                local x = angledelta(ang - 0.25, t.angle) * 200 + 57
+                circfill(x, rows[i] + 8 + y, 2, 8)
+            end
+        end
         for t = clk-1, clk+1 do
             local ta = t / 12
             local x = angledelta(ang, ta) * 200 + 57
@@ -1209,10 +1199,11 @@ function wep_draw(player)
         if playership.wep['phaser'..i..'pressed'] then
             spr(96, 73, rows[i] + y + 4, 1, 2) 
         end 
+        local heatkey = 'phaser'..i..'heat'
         rect(labelx[i], rows[i] + 10 + y, labelx[i] + 31, rows[i] + 14 + y + 2, 7)
-        rectfill(labelx[i] + 2, rows[i] + 12 + y, labelx[i] + 2 + playership.wep['phaser'..i..'heat'] * 28, rows[i] + 12 + y + 2, 6)
-        if playership.wep['phaser'..i..'heat'] > 0.5 then
-            rectfill(labelx[i] + 16, rows[i] + 12 + y, labelx[i] + 2 + playership.wep['phaser'..i..'heat'] * 28, rows[i] + 12 + y + 2, 8)
+        rectfill(labelx[i] + 2, rows[i] + 12 + y, labelx[i] + 2 + playership.wep[heatkey] * 28, rows[i] + 14 + y, 6)
+        if playership.wep[heatkey] > 0.5 then
+            rectfill(labelx[i] + 16, rows[i] + 12 + y, labelx[i] + 2 + playership.wep[heatkey] * 28, rows[i] + 14 + y, 8)
         end        
     end
 
@@ -1232,7 +1223,7 @@ function wep_draw(player)
         circfill(cx + cos(playership.wep.mgunangle) * 5, cy - sin(playership.wep.mgunangle) * 5, 1, 11)
     end
 
-    rect(86, 50 + y, 117, 54 + y + 2, 7)
+    rect(86, 50 + y, 117, 56 + y, 7)
     rectfill(88, 52 + y, 88 + playership.wep['mgunheat'] * 28, 54 + y, 6)
     if playership.wep['mgunheat'] > 0.5 then
         rectfill(102, 52 + y, 88 + playership.wep['mgunheat'] * 28, 54 + y, 6)
@@ -1271,7 +1262,7 @@ function wep_update(player)
                     local pn = {'a','b'}
                     local dmg = rnd(3) + 1 + #playership.pow.weapons * 2
                     add(lasers, make_laser(playership, playership.pos, target, 11, dmg, pn[row]))
-                    sfx(9, nil, 9 - min(dmg\1.5,9))
+                    sfx(25, nil, 9 - min(dmg\1.5,9))
                 end
             end       
         end
@@ -1282,7 +1273,7 @@ function wep_update(player)
                     for e in all(enemy_angles) do
                         if abs(angledelta(e.angle, playership.wep.mgunangle)) < 0.035 then
                             playership.wep.mgunlock = e.enemy
-                            hax_add_symbol("lock", e.enemy)
+                            hax_add_symbol(148, e.enemy)
                             break
                         end
                     end
@@ -1299,13 +1290,13 @@ end
 
 -------- HAX ---------
 
-hax_btns = {'target'=1,'loot'=2,'virus'=3,'repair'=4,''}
+hax_btns = {'target','loot','virus','download','repair'}
 --[[
     target - aim a random weapon (lock mgun possibly)
     loot - take 1/3 of remaining loot
     virus - force target an enemy for a while
     download - get an orb
-    repair - gain 30 hull
+    repair - gain 50 hull
 ]]--
 
 function hax_get_random_symbol()
@@ -1352,9 +1343,9 @@ function hax_draw(player)
     end
 
     local sy = 6
-    rectfill(2, 9 + y, 13, 4 + y + 53, 5)
+    rectfill(2, 9 + y, 13, y + 57, 5)
     if #hax.locked > 0 then
-        rect(2, 9 + y, 13, 4 + y + 53, hax.locked[1].color)
+        rect(2, 9 + y, 13, y + 57, hax.locked[1].color)
     end
     for s in all(hax.locked) do
         pal(7, s.color)
@@ -1406,12 +1397,13 @@ function hax_update(player)
                 
                 local ship = hax.locked[1].ship
                 if pc.y == 1 then
+                    local d = ship.pos - playership.pos
+                    local ang = (atan2(d.x, -d.y) + 0.25) % 1
                     for i = 1,2 do
-                        local delta = ship.pos - playership.pos
-                        local ang = atan2(delta.x, -delta.y)
-                        playership.wep['phaser'..(i+1)..'angle'] = ang
+                        playership.wep['phaser'..i..'angle'] = ang
                     end
                     playership.wep.mgunlock = ship
+                    --set_screen(player, "wep")
                 elseif pc.y == 2 then
                     local l = ship.loot \ 3
                     playership.loot += l
@@ -1429,17 +1421,16 @@ function hax_update(player)
                     end
                     ship.hack_time = 450
                 elseif pc.y == 4 then
+                    if ship.downloaded then sfx(30); return end
+                    add(playership.pow.reserve, 'd')
                     ship.downloaded = true
-                    if not ship.downloaded then
-                        add(playership.pow.reserve, 'n')
-                    end
                 elseif pc.y == 5 then
-                    playership.hull = min(playership.hull + 30, 100)
+                    playership.hull = min(playership.hull + 50, 100)
                 end
                 for i = 1,pc.y do
-                    local ind = flr(rnd(#hax.locked))+1
-                    deli(hax.locked, ind)
+                    deli(hax.locked, flr(rnd(#hax.locked))+1)
                 end
+                sfx(29)
             end
         end
     end
@@ -1469,6 +1460,7 @@ function hax_lock_symbol(s,pos)
     end
     hax.grid[pos.x][pos.y] = hax_get_random_symbol()
     add(hax.locked, s)
+    sfx(31)
 end
 
 function hax_symbols_update()
@@ -1483,7 +1475,7 @@ function hax_symbols_update()
         end
         if ht == 8 then
             deli(hax.grid[i],7)
-            hax.times[i] = -95 + flr(rnd(10))
+            hax.times[i] = -75 + flr(rnd(10))
         end
     end
 end
@@ -1491,19 +1483,29 @@ end
 function hax_add_symbol(name, ship)
     local hax = playership.hax
     local col = flr(rnd(6)+1)
-    hax.grid[col][1] = {symbol=hax_symbols[name], ship=ship, color=ship.color}
-    hax.times[col] = max(hax.times[col],0)
+    local s = {symbol=name, ship=ship, color=ship.color}
+    hax.grid[col][1] = s
+    hax.times[col] = max(hax.times[col],-1)
+    playership.last_symbol = s
+    playership.last_symbol_time = 0
 end
 
 -------- PICO-8 builtins ---------
-
+started = false
 function _init()
-    init_level(level)
+    music(0, 1000, 12)
+    --init_level()
+
 end
 
 function _update()
-    debugs = {}
-
+    if not started then
+        if btnp(4,0) or btnp(4,1) then
+            started = true
+            init_level()
+        end
+        return
+    end
     -- Regenerate the entity grid space partitioning
     generate_entgrid()
 
@@ -1512,9 +1514,9 @@ function _update()
     local steer = min(max(map['p1steer'] + map['p2steer'], -1),1)
     local thrust = min(max(map['p1thrust'] + map['p2thrust'], -1), 1)
     if thrust * pow_engines_thrust() != 0 then
-        sfx(4,3)
+        sfx(20,1)
     else
-        sfx(-1,3)
+        sfx(-1,1)
     end    
     playership.angle += steer * rotspeed
     local direction = vec(
@@ -1565,7 +1567,7 @@ function _update()
             local leading = vnorm(wep.mgunlock.pos + wep.mgunlock.vel * (sqrt(vdsq(delta)) / 1.5) - playership.pos)
             add(bullets, make_bullet(playership, playership.pos, leading, 7, 1 + 0.33 * #playership.pow.weapons, 'mgun'))
             wep.mgunheat += 0.075
-            sfx(12,nil,flr(rnd(3)), flr(rnd(3) + 3))
+            sfx(28,nil,flr(rnd(3)), flr(rnd(3) + 3))
         end
     end
     wep.mgunheat = max(wep.mgunheat - 0.001 * (1 + #playership.pow.reserve), 0)
@@ -1591,41 +1593,49 @@ function _update()
         playership.dead_time += 1
     end
 
-    ts += 0.0333333
     tf += 1    
 end
 
 function _draw()
-    
     reset()
     cls()
+    for i = 1,2 do
+        rect(0, player_ui_y(i), 127, player_ui_y(i) + screen_height-1, playercolors[i])   
+    end 
+
+    if not started then
+        for i = 1,2 do
+            spr(75 + i, 60, 18 + player_ui_y(i))
+            print("press z to start", 32, 32 + player_ui_y(i), 6)
+        end   
+        rectfill(30, 55, 95, 72, 0)
+        spr(160, 32, 56, 8, 2)   
+        return
+    end    
     
     -- Shake (messes with camera)
     shaket += 1 / vdsq(shake)
 
     if shaket < 1 then
-        local shx = shake.x * bounce(shaket)
-        local shy = shake.y * bounce(shaket)    
-        camera(shx,shy)
+        camera(shake.x * bounce(shaket),shake.y * bounce(shaket))
     end
 
     -- Player screens
     for i = 1,2 do
-        camera(-playership.dead_time * 10, 0)
-        clip(0, player_ui_y(i), 128, screen_height)
+        --if playership.dead then camera(-playership.dead_time * 10, 0) end
+        clip(1, player_ui_y(i)+1, 126, 58)
         playership[playership['p'..i..'s']].draw(i)
-        rect(0, player_ui_y(i), 127, player_ui_y(i) + screen_height-1, playercolors[i])
+        --rect(0, player_ui_y(i), 127, player_ui_y(i) + screen_height-1, playercolors[i])
         rectfill(1,player_ui_y(i) + 1,12,player_ui_y(i) + 1 + 6,playercolors[i])
         print(playership['p'..i..'s'], 1, player_ui_y(i) + 2, 7)
-        camera()
     end
 
     -- Status bar
     clip()
     if not playership.dead then
-        print("SHIELDS:    HULL:     LOOT:", 0, screen_height + 1, 7)
-        print(flr(playership.hull), 68, screen_height + 2, 8 + (playership.hull \ 25.1))
-        print("$"..flr(playership.loot), 108, screen_height + 2, 10)
+        print("SHIELDS:   HULL:    LOOT:", 0, screen_height + 1, 7)
+        print(flr(playership.hull), 64, screen_height + 2, 8 + (playership.hull \ 25.1))
+        print("$"..flr(playership.loot), 100, screen_height + 2, 10)
         for i = 1,4 do
             local clr = min(8 + (playership.shields[i] \ 3.1),12)
             if playership.shields[i] > 0 then
@@ -1633,12 +1643,24 @@ function _draw()
                 spr(9 + i, 31, screen_height)
             end
         end
+        local sym = playership.last_symbol
+        if sym then
+            playership.last_symbol_time += 1
+            if playership.last_symbol_time < 3 then
+                pal(7,7)
+            elseif playership.last_symbol_time < 22 then
+                pal(7,sym.color)
+            else
+                pal(7, 0)
+            end
+            spr(sym.symbol, 120, screen_height)
+        end
         pal()
 
     end
 
     -- Palette recoloring
-    if shaket < 2 then
+    if shaket < 1 then
         pal(recolor,1)
     end
     if shaket < 4 then
@@ -1664,30 +1686,35 @@ function _draw()
         cls()
         
         if win_time == 0 then
-            msg = "level "..level.." complete!\nbought "..bought.." cores: -$"..(bought*100)
+            msg = "level "..level.." complete!\n\nloot:$"..persistent.loot.."\nbought "..bought.." power cores: -$"..(bought*100)
+            if level >= 5 then msg = "victory!\n\nthank you for playing\n\ngame by morganquirk" end
             persistent.loot += playership.loot
             bought = persistent.loot \ 100
             persistent.loot -= bought * 100
             persistent.bonus_cores += bought
             if level == 2 or level == 4 then
                 persistent.bonus_quantum += 1
-                msg = msg.."\n+1 quantum cores"
+                msg = msg.."\nyou found a rare artifact:\n+1 quantum core"
             end
         end
         win_time += 1
         
-        print(sub(msg, 0, win_time \ 2), 4, 4, 11)
-        if win_time > 240 then init_level(level + 1) end
+        for i = 1,2 do
+            rect(0, player_ui_y(i), 127, player_ui_y(i) + screen_height-1, playercolors[i])
+            print(sub(msg, 0, win_time \ 2), 4, 4 + player_ui_y(i), 11)
+        end
+        
+        if win_time > (240 + #msg\2) and level < 5 then level += 1; init_level() end
     end
 end
 __gfx__
 0030330000033300000300000003330088000088cc0000cc0000000000000000000000000dddddd0000000000000000000000000000000000000000000000000
-0363663000366630003630000036663080000008c000000c00bbb3000077770000666600dddddddd00bbbb000000000000000000000000000000000000000000
-0363336300033630003633300036363000000000000000000b77bb300770077006600660dddddddd000bb000000000b0000000000b00000000000000b0000000
-0363363000366630003666300036663000000000000000000b7bbb300700007006000060dddddddd0000000000000bb0000000000bb0000000000000bb000000
-0363633000033630003636300003363000000000000000000bbbbb300700007006000060dddddddd0000000000000bb0000000000bb0000000000000bbb00000
-03636663003666300036663000003630000000000000000003bbb3300770077006600660dddddddd00000000000000b0000bb0000b000000000bb000bb000000
-0030333000033300000333000000030080000008c000000c003333000077770000666600dddddddd000000000000000000bbbb0000000000000bb000b0000000
+0363663000366630003630000036663080000008c000000c00ccc3000077770000666600dddddddd00bbbb000000000000000000000000000000000000000000
+0363336300033630003633300036363000000000000000000c77cc100770077006600660dddddddd000bb000000000b0000000000b00000000000000b0000000
+0363363000366630003666300036663000000000000000000c7ccc300700007006000060dddddddd0000000000000bb0000000000bb0000000000000bb000000
+0363633000033630003636300003363000000000000000000ccccc100700007006000060dddddddd0000000000000bb0000000000bb0000000000000bbb00000
+03636663003666300036663000003630000000000000000003ccc3100770077006600660dddddddd00000000000000b0000bb0000b000000000bb000bb000000
+0030333000033300000333000000030080000008c000000c001311000077770000666600dddddddd000000000000000000bbbb0000000000000bb000b0000000
 0000000000000000000000000000000088000088cc0000cc0000000000000000000000000dddddd00000000000000000000000000000000000bbbb0000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000777700000000000000000000000000
 00000000000000000000000000000000088008800cc00cc000aaa900009a990000aaa90000a7aa000000000000bbbb0007115570000000000000000000000000
@@ -1698,6 +1725,12 @@ __gfx__
 00000000000000000000000000000000088008800cc00cc000999900009999000099990000a9a9000000000000bbbb0007000070000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000777700000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000bbb30000b7730000bbb30000bbb30000bbb30000bbb30000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000bb77b100b7bb7100b7bb7300bb7b7300b7bbb6007bbbb6000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000b7bb7300bbbb7300b7b7b6007b7b73007b7bb600b7bb73000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000b7777100b7777100b7b7b6007b7b73007b7bb600b7bb73000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000377761003777610037bb63003b7b730037bbb6006bbbb6000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000131100001311000033330000333300003333000033330000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -1707,20 +1740,14 @@ __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-7777777777777777777777777777777777777777777bbbbb7777777777777777777777777777777777777777777bbbbb00000000000000000000000000000000
-6666666666666666666666666666666666666666666bbbbb6666666666666666666666666666666666666666666bbbbb00000000000000000000000000000000
-6222222222222222222222222222222666666666666bbbbb6666666600000066666666666622222222222266666bbbbb00000000000000000000000000000000
-6299999999999999999999999999992666666666666bbbbb666666604444440666666666662aaaaaaaaaa266666bbbbb00000000000000000000000000000000
-6244444444444444444444444444442666688886666bbbbb6666660446666440666666666624444444444266666bbbbb00000000000000000000000000000000
-6244444444444444444444444444442666888888666bbbbb6666604466666644066666666624444444444266666bbbbb00000000000000000000000000000000
-62444444444444444444444444444426688e8e88866bbbbb6666604666666664066666666624444444444266666bbbbb00000000000000000000000000000000
-624444444444444444444444444444266888e8e8866bbbbb6666644666666664466666666624444444444266666bbbbb00000000000000000000000000000000
+7777777777777777777777777777777777777777777bbbbb7777777777777777777777777777777777777777777bbbbb22288882111cc1110000000000000000
+6666666666666666666666666666666666666666666bbbbb6666666666666666666666666666666666666666666bbbbb228ff88811cccc110000000000000000
+6222222222222222222222222222222666666666666bbbbb6666666600000066666666666622222222222266666bbbbb28ffff88144999410000000000000000
+6299999999999999999999999999992666666666666bbbbb666666604444440666666666662aaaaaaaaaa266666bbbbb283f3f82149090110000000000000000
+6244444444444444444444444444442666688886666bbbbb6666660446666440666666666624444444444266666bbbbb22fffff2119444110000000000000000
+6244444444444444444444444444442666888888666bbbbb6666604466666644066666666624444444444266666bbbbb22f8ff22114494110000000000000000
+62444444444444444444444444444426688e8e88866bbbbb6666604666666664066666666624444444444266666bbbbb222ff222111441110000000000000000
+624444444444444444444444444444266888e8e8866bbbbb6666644666666664466666666624444444444266666bbbbb22565522117777110000000000000000
 62444444444444444444444444444426688e8e88866bbbbb6666644666666664466666666624444444444266666bbbbb00000000000000000000000000000000
 624444444444444444444444444444266888e8e8866bbbbb6666644766666674466666666624444444444266666bbbbb00000000000000000000000000000000
 6244444444444444444444444444442662888888266bbbbb6666644476666744466666666624444444444266666bbbbb00000000000000000000000000000000
@@ -1746,69 +1773,61 @@ __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00070000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-07777700000070000000000000077700000070000000000000077700007777000000700007700770070000707000000070070070000007000000000000000000
-00000700000777000770770000700000000070000070070000700070070000700000700007700770070007707070000007070700000007700000700000700000
-00077700007700700070700007007700077777770077770000070070070770700000000000000000070070707700000000707000007777770000700007700000
-00070000077000070070700007070070000070070070070000000700070770700077000000000000070700707007777777070770000007700000700077777700
-00077770777770000070700007070070077777770077770000007000070000700000000007700000077000707700000000707000000007000077777007700000
-00070000000000000070700007007700000070000070070000007000000000000000700007700000070077707070000007070700000000000007770000700000
-00070000000000000077700000000000000070000000000000007000000000000000700000000000000000007000000070070070000000000000700000000000
-00070000007777000070000007700000000770000000000000777700000000000000000000000000000000000000000000000000000000000000000000000000
-00777000070000700707000007070000007007000770000007007070000000000000000000000000000000000000000000000000000000000000000000000000
-07777700700000070777000007770000070000707007000070070707000000000000000000000000000000000000000000000000000000000000000000000000
-00070000707007070707000007070000070000707007000070077077000000000000000000000000000000000000000000000000000000000000000000000000
-00070000700000070707000007700000077777700000700770007777000000000000000000000000000000000000000000000000000000000000000000000000
-00070000070000700000000700000007077777700000700770000077000000000000000000000000000000000000000000000000000000000000000000000000
-00000000007007007777777777777777077007700000077007000070000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000770000000000700000007077777700000000000777700000000000000000000000000000000000000000000000000000000000000000000000000
+07777700000070000000000000077700000070000000000000077700007777000000700007700770070000700000000000000000000000000000000070000000
+00000700000777000770770000700000000070000070070000700070070000700000700007700770070007700000000000000000000000000000000070700000
+00077700007700700070700007007700077777770077770000070070070770700000000000000000070070700000000000000000000000000000000077000000
+00070000077000070070700007070070000070070070070000000700070770700077000000000000070700700000000000000000000000000000000070077777
+00077770777770000070700007070070077777770077770000007000070000700000000007700000077000700000000000000000000000000000000077000000
+00070000000000000070700007007700000070000070070000007000000000000000700007700000070077700000000000000000000000000000000070700000
+00070000000000000077700000000000000070000000000000007000000000000000700000000000000000000000000000000000000000000000000070000000
+00000000007777000070000007700000000770000000000000777700000000000000000000000000000000000000000000000000000000000000000000000000
+70070070070000700707000007070000007007000770000007007070000000000000000000000000000000000000000000000000000000000000000000000000
+07070700700000070777000007770000070000707007000070070707000000000000000000000000000000000000000000000000000000000000000000000000
+00707000707007070707000007070000070000707007000070077077000000000000000000000000000000000000000000000000000000000000000000000000
+77070770700000070707000007700000077777700000700770007777000000000000000000000000000000000000000000000000000000000000000000000000
+00707000070000700000000700000007077777700000700770000077000000000000000000000000000000000000000000000000000000000000000000000000
+07070700007007007777777777777777077007700000077007000070000000000000000000000000000000000000000000000000000000000000000000000000
+70070070000770000000000700000007077777700000000000777700000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+07777770077007777770077777770077770777007777770077777007700077000000000000000000000000000000000000000000000000000000000000000000
+07777770077007777770077777770077707777007777770077777007700770000000000000000000000000000000000000000000000000000000000000000000
+07700770077007700770077700770000077000007700770077000007700770000000000000000000000000000000000000000000000000000000000000000000
+07700770077007700770077000770000077000007700770077000007707700000000000000000000000000000000000000000000000000000000000000000000
+07700770077007700700077000770000077000007700770077000007707700000000000000000000000000000000000000000000000000000000000000000000
+07707770077007700000077000770000077000007707770077007007777000000000000000000000000000000000000000000000000000000000000000000000
+07077700077007700000077000770000077000007777700077077007770000000000000000000000000000000000000000000000000000000000000000000000
+00777000077007700000077000770000077000007777070077077007707000000000000000000000000000000000000000000000000000000000000000000000
+07770000077007700000077000770000077000007770770077070007777000000000000000000000000000000000000000000000000000000000000000000000
+07700000077007700070077000770000077000007700770077000007707700000000000000000000000000000000000000000000000000000000000000000000
+07700000077007700770077000770000077000007700770077000007707700000000000000000000000000000000000000000000000000000000000000000000
+07700000077007700770077007770000077000007700770077000007700770000000000000000000000000000000000000000000000000000000000000000000
+07700000077007777770077777770000077000007700770077777007700770000000000000000000000000000000000000000000000000000000000000000000
+07700000077007777770077777770000077000007700770077777007700077000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-77777777777777777777777777777777000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-73333333333333333333333333333337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-73333333333333333333333333333337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-73333333333333333333333333333337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-73333333333333333333333333333337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-73333333333333333333333333333337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-73333333333333333333333333333337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-73333333333333333333333333333337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-73333333333333333333333333333337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-73333333333333333333333333333337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-73333333333333333333333333333337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-73333333333333333333333333333337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-73333333333333333333333333333337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-73333333333333333333333333333337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-73333333333333333333333333333337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-73333333333333333333333333333337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-73333333333333333333333333333337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-73333333333333333333333333333337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-73333333333333333333333333333337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-73333333333333333333333333333337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-73333333333333333333333333333337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-73333333333333333333333333333337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-73333333333333333333333333333337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-73333333333333333333333333333337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-73333333333333333333333333333337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-73333333337333733733773333333337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-73333333337737737373737333333337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-73333333337373737773773333333337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-73333333337333737373733333333337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-73333333333333333333333333333337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-73333333333333333333333333333337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-77777777777777777777777777777777000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+77777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777
+73333333333333333333333333333337755555555555555555555555555555577222222222222222222222222222222770000000000000000000000000000007
+733333b3333777337733773333333337755555555555555555555555555555577222222222222222222222222222222770666000006660000000000000000007
+73333333333777373737373333333337755555555cccccccccccc555555555577222222222222222266666666666662770606066606060aaa000000000000007
+733333b3333737377737773333333337755577755cccccccccccc555555555577222222222222222264444444688862770666060606660a0a000000000000007
+73333333333737373737333333333337755555555cccccccccccc555555555577222222222222222264444444688862770000066600000aaa000000000000007
+733333b3333333333333333333333337755555555555555555555555555555577222222222222222264444444688862770aaa000006660000000000000000007
+7333333333333333333333333333333775555b555ccccc5555555555555555577222222222222222266666666666662770a0a066606060666000000000000007
+733333b33333333333333333333333377555bbb55ccccc5555555555555555577222222222222222222222222222222770aaa060606660606000000000000007
+733333333333333333b333333333333775555b555ccccc5555555555555555577222222222222222222222222222222770000066600000666000000000000007
+733333b333333333bb33333333333337755555555555555555555555555555577272727772277222266666666666662770666000006660000007070077070707
+73333333333333bb3b33333333333337755566655cccccccccccccccc555555772727277227272222644444446888627706060ccc06060666007070707007007
+733333b3333333b3b333333333333337755566655cccccccccccccccc555555772777272227772222644444446888627706660c0c06660606007770777007007
+733333333333333bb333333333333337755566655cccccccccccccccc555555772777227727222222644444446888627700000ccc00000666007070707070707
+733333b333333333333333333333333775555555555555555555555555555557722222222222222226666666666666277066600000aaa0000000000000000007
+73333333333333333333333333333337755558855cc555555555555555555557722222222222222222222222222222277060606660a0a0666000000000000007
+733333b3333333333333333333333337755588855cc555555555555555555557722222222222222222222222222222277066606060aaa0606000000000000007
+73333333333333333333333333333337755558855cc5555555555555555555577222222222222222266666666666662770000066600000666000000000000007
+73b3b3b3b3b3b3b3b3b3b3b3b3b3b3b7755555555555775577575755555555577222222222222222266466666644462770666000006660000000000000000007
+73333333333333333333333333333337755555555557575757575755555555577222222222222222264646666646462770606066606060666000000000000007
+733333b3333333333333333333333337755555555557775757577755555555577222222222222222266466666644462770666060606660606000000000000007
+73333333333333333333333333333337755555555557555775577755555555577222222222222222266666666666662770000066600000666000000000000007
+733333b3333333333333333333333337755555555555555555555555555555577222222222222222222222222222222770000000000000000000000000000007
+77777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777
 __label__
 88888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
 88888888888883333333323333333333333333333333233333333333333333333333333333333333333333333333333333333333333333333333333133333338
@@ -1940,11 +1959,27 @@ c2222222222222222222222222222222222222222222222222222222222222222222222222222222
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
 __sfx__
+490c060b180101801018010180201802018030180301872018030187301803018720180100c010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+900300001805018050197501803018020180101801000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+490500000461004610046100562007620096200d630156301e6401f6102f630296201c61016600116000b60007600006001660000000000000000000000000000000000000000000000000000000000000000000
+000300001812018130181100010000100001000010000100001000010000100001000010000100001000010000100001000010000100001000010000100001000010000100001000010000100001000010000100
+300100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+940300000050000500005000050000500005000050000500005000050000500005000050000500005000050000500005000050000500005000050000500005000050000500005000000000000000000000000000
+020300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+300100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+152000000683006830060100601006830068300601006010028300283002010020100283002830020100201008830088300883008830080100801008010080100a8300a8300a0100a0100a0100a0100a8300a830
+152000000983009830090100901009830098300901009010078300783007010070100782007820070100701006830068300683006830060100601006010060100383003830030100301003010030100382003820
+152000000683012830060100600006830068000601006000028300280002010020000282002800020100200008830088300883008800080100800008010080000a8300a8000a0100a0000a0100a0000a8200a800
+112000000983009b300902009b30098300983009010090100783007b300702007b300783007830070100701006830068000684006800060100600006010060000383003800030100300003010030000382003800
+142000000683012b100683013b100683012b10068300fb1002830028000281002000028200280002810020000883012b100883013b100881012b10088200fb100a8300a8000a8100a0000a8100a0000a8200a800
+a52000000683006830060100601000a2000a1006000060000283002830020100201000a2000a1002000020000183001830018300183000a2000a1008000080000183001830018300183000a2000a100a8000a800
+a52000000883008830080100801000a0000a0006000060000a8300a8300a0100a01000a0000a0002000020000983009830098300983000a0000a0008000080000b8300b8300c8300c83000a0000a000a8000a800
+300100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 480100003f050234503f450234503e450204501f4501d4501c4501b4401a4401c4401e430204302342023420234102341023410234102341023400234002340015400004000c4000040000400004000040000400
 00030000066700d67014470256500d440056300d6400c6600b6400b6300a63009610086500764007620076200762005610056100462004610076000560000e000560005600046000360000600006000060000600
-480400002831028310283101531015310153102831028310283101531015310153100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+480600002831028310283101531015310153102832028320283201532015320153200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000500003a3503a3403a3303a4203a410003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300
-460200150273001720027200272004720017200172001710007200372001720017200072000720027200071002720007200172001720027200075000700007000070000700007000070000700007000070000700
+990200150e7200d7100e7100e7101c7100d7100d7100d7200c7100f710197200d7100c7100c7101a720187100e7100c7100d7100d7200e7200c71000700007000070000700007000070000700007000070000700
 940300000651024510005000050000500005000050000500005000050000500005000050000500005000050000500005000050000500005000050000500005000050000500005000050000500005000050000500
 020300003a6502a620226200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 3001000036450354503445032450304402e4302b4202a4102a4302a0402d040310203301034010340203402034020340203401034010340103401034010000000000000000000000000000000000000000000000
@@ -1953,3 +1988,22 @@ __sfx__
 640200003723003040372003520000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 a8030000021500814015130306602c6602965026650226501f6401c65019640186301564013630136300e6200e6200c6300862006620056300462003610016200161000610006200061003600000000000000000
 4802000019430154200b6300762002610026300161000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+480e00002e75027750207500070000700007000070000700007000070000700007000070000700007000070000700007000070000700007000070000700007000070000000000000000000000000000000000000
+041500001212000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000300002f55039520005000050000500005000050000500005000050000500005000050000500005000050000500005000050000500005000050000500005000050000500005000050000500005000050000500
+__music__
+01 484a4308
+00 48424308
+00 494a4309
+00 494a4309
+00 4142430a
+00 4142430a
+00 4142430b
+00 4142430b
+00 4142430c
+00 4142430c
+00 4142430d
+00 4142430d
+02 4142430e
+00 4142434e
+
