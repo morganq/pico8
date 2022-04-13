@@ -147,6 +147,13 @@ function mm(a,b)
     }
 end
 
+function t2v(t)
+    return vec(t[1], t[2], t[3], t[4])
+end
+function v2t(v)
+    return {v.x, v.y, v.z, v.w}
+end
+
 function mv(m, v)
     return vec(
         m[1] * v.x +    m[2] * v.y +    m[3] * v.z +    m[4] * v.w,
