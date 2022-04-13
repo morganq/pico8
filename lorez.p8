@@ -70,46 +70,36 @@ function str_matrix(m)
 end
 
 function str_point(p)
-    return p.x..","..p.y..","..p.z..","..p.w
+    return p[1]..","..p[2]..","..p[3]..","..p[4]
 end
 
 ---- MATH ----
 p8cos = cos function cos(angle) return p8cos(angle/(3.1415*2)) end
 p8sin = sin function sin(angle) return -p8sin(angle/(3.1415*2)) end
 
-vec_metatable = {
-    __add = function(left, right)
-        return vec(left.x + right.x, left.y + right.y, left.z + right.z)
-    end,
-    __sub = function(left, right)
-        return vec(left.x - right.x, left.y - right.y, left.z - right.z)
-    end,
-    __mul = function(v, s)
-        return vec(v.x * s, v.y * s, v.z * s)
-    end    
-}
-
 function vec(x,y,z,w)
-    local v = {x=x or 0,y=y or 0,z=z or 0,w=w or 1}
-    setmetatable(v,vec_metatable)
-    return v
+    return {x or 0,y or 0,z or 0,w or 1}
 end
 
+function v_add(a,b) return {a[1] + b[1], a[2] + b[2], a[3] + b[3], 1} end
+function v_sub(a,b) return {a[1] - b[1], a[2] - b[2], a[3] - b[3], 1} end
+function v_mul(a,s) return {a[1] * s, a[2] * s, a[3] * s, 1} end
+
 function v_mag(v)
-    return sqrt(v.x * v.x + v.y * v.y + v.z * v.z)
+    return sqrt(v[1] * v[1] + v[2] * v[2] + v[3] * v[3])
 end
 
 function v_norm(v)
     local d = v_mag(v)
-    return vec(v.x / d, v.y / d, v.z / d)
+    return {v[1] / d, v[2] / d, v[3] / d, 1}
 end
 
 function v_cross(a,b)
-    return vec(a.y * b.z - b.y * a.z, a.z * b.x - b.z * a.x, a.x * b.y - b.x * a.y)
+    return {a[2] * b[3] - b[2] * a[3], a[3] * b[1] - b[3] * a[1], a[1] * b[2] - b[1] * a[2], 1}
 end
 
 function v_dot(a,b)
-    return a.x*b.x + a.y * b.y + a.z * b.z
+    return a[1]*b[1] + a[2] * b[2] + a[3] * b[3]
 end
 
 function clamp(x, a, b)
@@ -147,20 +137,13 @@ function mm(a,b)
     }
 end
 
-function t2v(t)
-    return vec(t[1], t[2], t[3], t[4])
-end
-function v2t(v)
-    return {v.x, v.y, v.z, v.w}
-end
-
 function mv(m, v)
-    return vec(
-        m[1] * v.x +    m[2] * v.y +    m[3] * v.z +    m[4] * v.w,
-        m[5] * v.x +    m[6] * v.y +    m[7] * v.z +    m[8] * v.w,
-        m[9] * v.x +    m[10] * v.y +   m[11] * v.z +   m[12] * v.w,
-        m[13] * v.x +   m[14] * v.y +   m[15] * v.z +   m[16] * v.w
-    )
+    return {
+        m[1] * v[1] +    m[2] * v[2] +    m[3] * v[3] +    m[4] * v[4],
+        m[5] * v[1] +    m[6] * v[2] +    m[7] * v[3] +    m[8] * v[4],
+        m[9] * v[1] +    m[10] * v[2] +   m[11] * v[3] +   m[12] * v[4],
+        m[13] * v[1] +   m[14] * v[2] +   m[15] * v[3] +   m[16] * v[4]
+    }
 end
 
 function m_identity()
@@ -245,7 +228,7 @@ function update_internal_transforms(e)
             p.world_transform = mm(e.transform, p.transform)
             for poly in all(p.polys) do
                 poly.world_center = mv(p.world_transform, poly.center)
-                poly.world_normal = mv(p.world_transform, poly.center + poly.normal) - poly.world_center
+                poly.world_normal = v_sub(mv(p.world_transform, v_add(poly.center, poly.normal)), poly.world_center)
             end
         end
         p.dirty = false
@@ -261,16 +244,16 @@ function generate_entgrid()
         entgrid[i] = {}
     end
     for e in all(ents) do
-        local pos = mv(e.transform, vec())
-        local bin = clamp(pos.z \ egsize, -egbounds, egbounds)
+        local pos = e.entgrid_pos or mv(e.transform, vec())
+        local bin = clamp(pos[3] \ egsize, -egbounds, egbounds)
         add(entgrid[bin],e)
     end
 end
 
 function get_visible_ents(pos)
     local results = {}
-    local bin = pos.z \ egsize
-    for i = max(bin - 5, -egbounds), min(bin + 1, egbounds) do
+    local bin = pos[3] \ egsize
+    for i = min(bin + 2, egbounds), max(bin - 5, -egbounds), -1 do
         for e in all(entgrid[i]) do
             add(results, e)
         end
@@ -291,10 +274,10 @@ dying_polys = {}
 function poly(points, target)
     local avg = vec()
     for p in all(points) do
-        avg += p * (1 / #points)
+        avg = v_add(avg, v_mul(p, 1 / #points))
     end
-    local d1 = v_norm(points[2] - points[1])
-    local d2 = v_norm(points[3] - points[2])
+    local d1 = v_norm(v_sub(points[2], points[1]))
+    local d2 = v_norm(v_sub(points[3], points[2]))
     local p = {
         points = points,
         center = avg,
@@ -310,12 +293,14 @@ end
 
 function final_point(t, p)
     local pta = mv(t, p)
-    return vec(pta.x / pta.w * 64 + 64, pta.y / pta.w * 64 + 64, pta.z / pta.w, pta.w)
+    return vec(pta[1] / pta[4] * 64 + 64, pta[2] / pta[4] * 64 + 64, pta[3] / pta[4], pta[4])
 end
 
 function draw_3d_scene(t, target2d)
     -- Make a set of bins to place all polygons into based on distance from camera
     -- This is like a Radix sort. 
+    local num_polys_queued = 0
+
     zbins = {}
     for i = 1, 32 do
         add(zbins, {})
@@ -323,29 +308,43 @@ function draw_3d_scene(t, target2d)
 
     for e in all(get_visible_ents(camera.pos)) do
         for part in all(e.parts) do
+            local trans
+            if e.static then
+                trans = t
+            else
+                trans = mm(t, part.world_transform) -- slow
+            end
+             
             for p in all(part.polys) do
+                if num_polys_queued > 60 then print("over poly limit!!") break end
                 --local mvt = part.world_transform
-                --local world_center = mv(mvt, p.center)
-                --local norm = mv(mvt, p.center + p.normal) - world_center
+                --p.world_center = mv(mvt, p.center)
+                --local norm = v_sub(mv(mvt, v_add(p.center, p.normal)), p.world_center)
                 local norm = p.world_normal
-                local delta = v_norm(p.world_center - camera.pos)
+                local delta = v_norm(v_sub(p.world_center, camera.pos))
                 local dot = v_dot(delta, norm)
-                if dot < 0 then -- backface culling
-                    local trans = mm(t, part.world_transform) -- slow
+                local behind = v_dot(delta, camera.fwd)
+                if behind > 0 and dot < 0 then -- backface culling
                     local t_center = mv(trans, p.center)
                     local d = v_mag(t_center)
                     local bin = 32 - clamp((d * 32 \ -(camera.far - camera.near)), 0, 31)
                     add(zbins[bin], {ent=e, part=part, poly=p, transform=trans, center_2d=t_center, center=p.center, dot = dot})
+                    num_polys_queued += 1
                 end
             end
+            if num_polys_queued > 60 then break end
         end
+        if num_polys_queued > 60 then break end
     end
+    print(num_polys_queued)
+
+    --return end function _QWERTY()
 
     fillp()
     for i, bin in pairs(zbins) do
         for p in all(bin) do
-            if p.poly.shadow and p.center_2d.z / p.center_2d.w > -1 and p.center_2d.z/ p.center_2d.w < 1 then
-                circfill(p.center_2d.x / p.center_2d.w * 64 + 64, p.center_2d.y / p.center_2d.w * 64 + 64, 4 / (p.center_2d.z / p.center_2d.w), 0)
+            if p.poly.shadow and p.center_2d[3] / p.center_2d[4] > -1 and p.center_2d[3]/ p.center_2d[4] < 1 then
+                circfill(p.center_2d[1] / p.center_2d[4] * 64 + 64, p.center_2d[2] / p.center_2d[4] * 64 + 64, 4 / (p.center_2d[3] / p.center_2d[4]), 0)
             end
         end
     end
@@ -386,12 +385,12 @@ function draw_3d_scene(t, target2d)
             for j = 1, #p.poly.points do
                 local pt = p.poly.points[j]
                 local pta = mv(p.transform, pt)
-                local ptb = {pta.x / pta.w, pta.y / pta.w, pta.z / pta.w}
+                local ptb = {pta[1] / pta[4], pta[2] / pta[4], pta[3] / pta[4], 1}
                 if ptb[3] < -1 or ptb[3] > 1 then
                     reject = true
                     break
                 else
-                    add(pts2d, {ptb[1] * 64 + 64, ptb[2] * 64 + 64, ptb[3]})
+                    add(pts2d, {ptb[1] * 64 + 64, ptb[2] * 64 + 64, ptb[3], 1})
                 end
             end
             if not reject then
@@ -404,18 +403,18 @@ function draw_3d_scene(t, target2d)
 
                 if p.poly.target then
                     local pc = p.center_2d
-                    local pch = vec(pc.x / pc.w, pc.y / pc.w, pc.z / pc.w)
-                    if pch.z > -1 and pch.z < 1 then
+                    local pch = {pc[1] / pc[4], pc[2] / pc[4], pc[3] / pc[4], 1}
+                    if pch[3] > -1 and pch[3] < 1 then
                         --DRAW NORMALS 
                         --[[
-                        local normoff = p.center + p.poly.normal * 1
+                        local normoff = v_add(p.center, p.poly.normal)
                         local norm2d = final_point(p.transform, normoff)
                         fillp(█)
-                        line(pc.x / pc.w * 64 + 64, pc.y / pc.w * 64 + 64, norm2d.x, norm2d.y, 7)
+                        line(pc[1] / pc[4] * 64 + 64, pc[2] / pc[4] * 64 + 64, norm2d[1], norm2d[2], 7)
                         ]]--
-                        --print(p.dot, pc.x / pc.w * 64 + 64, pc.y / pc.w * 64 + 64, 7)
-                        local xd = abs(pc.x / pc.w * 64 + 64 - target2d.x)
-                        local yd = abs(pc.y / pc.w * 64 + 64 - target2d.y)
+                        --print(p.dot, pc[1] / pc[4] * 64 + 64, pc[2] / pc[4] * 64 + 64, 7)
+                        local xd = abs(pc[1] / pc[4] * 64 + 64 - target2d[1])
+                        local yd = abs(pc[2] / pc[4] * 64 + 64 - target2d[2])
                         if xd < 25 and yd < 25 then
                             local ccolor = 5
                             if xd < 5 and yd < 5 then
@@ -428,11 +427,11 @@ function draw_3d_scene(t, target2d)
                                     player.last_select_time = 0
                                 end
                             end
-                            circfill(pc.x / pc.w * 64 + 64, pc.y / pc.w * 64 + 64, 1, ccolor)
+                            circfill(pc[1] / pc[4] * 64 + 64, pc[2] / pc[4] * 64 + 64, 1, ccolor)
                         end 
                     end
                     if p.poly.selected then
-                        circfill(pc.x / pc.w * 64 + 64, pc.y / pc.w * 64 + 64, 1, 7)               
+                        circfill(pc[1] / pc[4] * 64 + 64, pc[2] / pc[4] * 64 + 64, 1, 7)               
                     end
                 end
 
@@ -464,7 +463,7 @@ function deserialize_entity(str)
             for k = 2, #strpts do
                 local pt = strpts[k]
                 local comps = split(pt, ",")
-                add(pts, vec(comps[1],comps[2],comps[3]))
+                add(pts, {comps[1],comps[2],comps[3],1})
             end
             add(polys, poly(pts, strpts[1] == 1))
         end
@@ -483,7 +482,7 @@ function serialize_entity(e)
             str = str .. (poly.target and 1 or 0) .. ';'
             for j = 1, #poly.points do
                 local pt = poly.points[j]
-                str = str .. pt.x .. "," .. pt.y .. "," .. pt.z
+                str = str .. pt[1] .. "," .. pt[2] .. "," .. pt[3]
                 if j < #poly.points then str ..= ";" end
             end
             if i < #part.polys then str ..= '/' end
@@ -536,17 +535,19 @@ function _init()
         local polys = {}
         for j = -1,1 do
             local pol = poly({
-                vec(-3 + j * 8, 0, 0.5),
-                vec(3 + j * 8, 0, 0.5),
-                vec(3 + j * 8, 0, -0.5),
-                vec(-3 + j * 8, 0, -0.5),
+                vec(-3 + j * 8 + i % 2 - 0.5, -3, 0.5 + i * 1.5),
+                vec(3 + j * 8 + i % 2 - 0.5, -3, 0.5 + i * 1.5),
+                vec(3 + j * 8 + i % 2 - 0.5, -3, -0.5 + i * 1.5),
+                vec(-3 + j * 8 + i % 2 - 0.5, -3, -0.5 + i * 1.5),
             })
             pol.shadow = false
             --pol.fill = 0b0101101101011110
             add(polys, pol)    
         end
         e.parts = {part(polys, m_identity())}
-        e.transform = m_translate(i % 2 - 0.5,-3,i * 1.5)
+        e.transform = m_identity()--m_translate(i % 2 - 0.5,-3,i * 1.5)
+        e.static = true
+        e.entgrid_pos = {0,-3,i * 1.5}
         add(ents, e)
         update_internal_transforms(e)
     end
@@ -557,16 +558,16 @@ end
 
 function update_player()
     if btn(0) then
-        player.cursor_angles.y -= 0.02
+        player.cursor_angles[2] -= 0.02
     end
     if btn(1) then
-        player.cursor_angles.y += 0.02
+        player.cursor_angles[2] += 0.02
     end    
     if btn(2) then
-        player.cursor_angles.x -= 0.02
+        player.cursor_angles[1] -= 0.02
     end
     if btn(3) then
-        player.cursor_angles.x += 0.02
+        player.cursor_angles[1] += 0.02
     end 
     player.selecting = btn(5)
     if not player.selecting and #player.selected > 0 then
@@ -581,7 +582,7 @@ function update_player()
     end
     player.last_select_time += 1
 
-    for axis in all({"y","x"}) do
+    for axis in all({2,1}) do
         yad = angledelta(player.cursor_angles[axis], camera.angles[axis])
         amt = abs(yad) * 1
         if yad > 0.1 then
@@ -614,7 +615,7 @@ end
 tf = 0
 function _update60()
     debugs = {}
-    camera.pos -= vec(0,0,0.02)
+    camera.pos = v_sub(camera.pos, vec(0,0,0.02))
     local current_music_timing = stat(20)
     if current_music_timing != last_music_timing and current_music_timing then
         on_beat_update(current_music_timing)
@@ -625,15 +626,15 @@ function _update60()
 
     for p in all(dying_polys) do
         for i = 1, #p.points do
-            local delta = p.center - p.points[i]
-            p.points[i] += delta * 0.03
+            local delta = v_sub(p.center, p.points[i])
+            p.points[i] = v_add(p.points[i], delta * 0.03)
         end
     end
 
     --camera.angles = player.cursor_angles
-    local rot = mm(m_rot_x(camera.angles.x), m_rot_y(camera.angles.y))
+    local rot = mm(m_rot_x(camera.angles[1]), m_rot_y(camera.angles[2]))
     camera.view_mat = mm(m_look(), rot)
-    camera.fwd = mv(mm(m_rot_y(-camera.angles.y), m_rot_x(-camera.angles.x)), vec(0,0,-1))
+    camera.fwd = mv(mm(m_rot_y(-camera.angles[2]), m_rot_x(-camera.angles[1])), vec(0,0,-1))
     --add(debugs, str_matrix(camera.view_mat))
     --add(debugs, str_point(camera.fwd))
     
@@ -656,11 +657,11 @@ function draw_bg(t)
     if on_beat != nil and on_beat % 4 == 0 then
         c1, c2 = 5, 10
     end    
-    local sy = final_point(t, camera.pos + vec(0,0,-50)).y
+    local sy = final_point(t, camera.pos + vec(0,0,-50))[2]
     for z = 0, 15 do
         local bha = z / 16 * 6.2818
-        local y = background_heights[z + 1] * 4 + sy-- - sin(camera.angles.x) * 80
-        local deltabha = angledelta(camera.angles.y, bha)
+        local y = background_heights[z + 1] * 4 + sy-- - sin(camera.angles[1]) * 80
+        local deltabha = angledelta(camera.angles[2], bha)
         local x = 64 + deltabha * 72
 
         circfill(x, y + 25, 20 + z % 6, c2)
@@ -685,19 +686,19 @@ function draw_bg(t)
 end
 
 function _draw()
-    local t = mm(mm(perspective_transform, camera.view_mat), m_translate(-camera.pos.x, -camera.pos.y, -camera.pos.z))
+    local t = mm(mm(perspective_transform, camera.view_mat), m_translate(-camera.pos[1], -camera.pos[2], -camera.pos[3]))
     cls()  
     
-    local cursorm = mm(m_rot_y(-player.cursor_angles.y), m_rot_x(-player.cursor_angles.x))
-    local target2d = final_point(t, camera.pos + mv(cursorm, vec(0,0,-5)))
+    local cursorm = mm(m_rot_y(-player.cursor_angles[2]), m_rot_x(-player.cursor_angles[1]))
+    local target2d = final_point(t, v_add(camera.pos, mv(cursorm, vec(0,0,-5))))
 
     draw_3d_scene(t, target2d)
 
-    if target2d.z > -1 and target2d.z < 1 then
+    if target2d[3] > -1 and target2d[3] < 1 then
         fillp()
-        spr(1 + (player.selecting and 2 or 0), target2d.x - 8, target2d.y - 8, 2, 2)
+        spr(1 + (player.selecting and 2 or 0), target2d[1] - 8, target2d[2] - 8, 2, 2)
         if #player.selected > 0 and player.last_select_time < 12 then
-            spr(4 + #player.selected, target2d.x - 4, target2d.y - 12)
+            spr(4 + #player.selected, target2d[1] - 4, target2d[2] - 12)
         end
     end
 
