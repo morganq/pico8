@@ -4,6 +4,24 @@ __lua__
 -- wireframe
 -- by morganquirk
 
+--level:
+-- part 1 floor: cobblestone, bg: castle type stuff --
+-- 4 minion
+-- 4 minion
+-- crown turret
+-- crown turret
+-- lock 
+-- part 2 floor: road bg: gears? --
+-- 3 buildings (5 each)
+-- 6 minion
+-- 8 buildings
+-- stock exchange
+-- lock
+-- part 3 floor: map. bg: current one --
+-- guns
+-- minion swarm
+-- boss?
+
 background_heights = split("-8,-6,-4,-2,-2,-1,0,0,1,1,2,1,1,0,-2,-5",",")
 
 enemy_artillery = [[12
@@ -11,8 +29,17 @@ enemy_artillery = [[12
 1;2.1697,2.8,3.3604;2.1697,1.4,3.3604;3.3588,1.4,2.1723;3.3588,2.8,2.1723/1;3.559,2.8,1.8258;3.559,1.4,1.8258;3.9949,1.4,0.2024;3.9949,2.8,0.2024/1;3.9952,2.8,-0.1963;3.9952,1.4,-0.1963;3.5618,1.4,-1.8203;3.5618,2.8,-1.8203/1;3.3621,2.8,-2.1671;3.3621,1.4,-2.1671;2.1749,1.4,-3.3571;2.1749,2.8,-3.3571/1;1.8286,2.8,-3.5576;1.8286,1.4,-3.5576;0.2054,1.4,-3.9947;0.2054,2.8,-3.9947/1;-0.1932,2.8,-3.9954;-0.1932,1.4,-3.9954;-1.8176,1.4,-3.5632;-1.8176,2.8,-3.5632/1;-2.1646,2.8,-3.3637;-2.1646,1.4,-3.3637;-3.3554,1.4,-2.1774;-3.3554,2.8,-2.1774/1;-3.5562,2.8,-1.8312;-3.5562,1.4,-1.8312;-3.9946,1.4,-0.2086;-3.9946,2.8,-0.2086/1;-3.9955,2.8,0.1901;-3.9955,1.4,0.1901;-3.5646,1.4,1.8149;-3.5646,2.8,1.8149/1;-3.3654,2.8,2.162;-3.3654,1.4,2.162;-2.18,1.4,3.3538;-2.18,2.8,3.3538/1;-1.834,2.8,3.5548;-1.834,1.4,3.5548;-0.2116,1.4,3.9944;-0.2116,2.8,3.9944/1;0.1886,2.8,3.9955;0.1886,1.4,3.9955;1.8121,1.4,3.566;1.8121,2.8,3.566
 0;1.735,4.8,0.8901;2.6693,3.4,1.3694;2.6713,3.4,-1.3652;1.7363,4.8,-0.8874/0;1.639,4.8,-1.0565;2.5215,3.4,-1.6253;0.1541,3.4,-2.996;0.1001,4.8,-1.9474/0;-0.0942,4.8,-1.9477;-0.1449,3.4,-2.9965;-2.5166,3.4,-1.6331;-1.6358,4.8,-1.0615/0;-1.7336,4.8,-0.8927;-2.6672,3.4,-1.3734;-2.6734,3.4,1.3612;-1.7377,4.8,0.8847/0;-1.6406,4.8,1.054;-2.5241,3.4,1.6215;-0.1587,3.4,2.9958;-0.1032,4.8,1.9472/0;0.0919,4.8,1.9478;0.1414,3.4,2.9967;2.514,3.4,1.6369;1.6341,4.8,1.064]]
 
+enemy_minion = [[1
+0;-1,-0.3,1;-0.9,-0.5,-1;-0.9,0.5,-1;-1,0.3,1/0;-1.1,-0.5,-1;-1,-0.3,1;-1,0.3,1;-1.1,0.5,-1
+1;-0.2,-0.3,0;0.2,-0.3,0;0.5,0.3,0;-0.5,0.3,0
+0;0.9,-0.5,-1;1,-0.3,1;1,0.3,1;0.9,0.5,-1/0;1,-0.3,1;1.1,-0.5,-1;1.1,0.5,-1;1,0.3,1]]
 
 ---- GLOBALS ----
+tf = 0
+pulse_t = 0
+last_music_timing = 0
+on_beat = nil
+recolor={1,1,13,1,13,1,13,7,0,12,12,12,12,12,12,12}
 
 ---- TRI FILL ----
 
@@ -22,7 +49,6 @@ function p01_trapeze_h(l,r,lt,rt,y0,y1)
     if(y0<0)l,r,y0=l-y0*lt,r-y0*rt,0
     y1=min(y1,128)
     for y0=y0,y1 do
-        --for q = min(l,r),max(l,r) do pset(q,y0) end
         rectfill(l,y0,r,y0)
         l+=lt
         r+=rt
@@ -85,6 +111,13 @@ function v_add(a,b) return {a[1] + b[1], a[2] + b[2], a[3] + b[3], 1} end
 function v_sub(a,b) return {a[1] - b[1], a[2] - b[2], a[3] - b[3], 1} end
 function v_mul(a,s) return {a[1] * s, a[2] * s, a[3] * s, 1} end
 
+function v_limit(v, s) 
+    if v[1] * v[1] + v[2] * v[2] + v[3] * v[3] > s * s then
+        return v_mul(v_norm(v), s)
+    end
+    return v
+end
+
 function v_mag(v)
     return sqrt(v[1] * v[1] + v[2] * v[2] + v[3] * v[3])
 end
@@ -146,13 +179,23 @@ function mv(m, v)
     }
 end
 
-function m_identity()
+function mvx(m, v)
     return {
+        m[1] * v[1] +    m[2] * v[2] +    m[3] * v[3],
+        m[5] * v[1] +    m[6] * v[2] +    m[7] * v[3],
+        m[9] * v[1] +    m[10] * v[2] +   m[11] * v[3],
+    }
+end
+
+function m_identity()
+    local m = {
         1,0,0,0,
         0,1,0,0,
         0,0,1,0,
         0,0,0,1
     }
+    m.is_identity = true
+    return m
 end
 
 -- opt could precompute all args?
@@ -185,6 +228,16 @@ function m_rot_x(theta)
     }
 end
 
+function m_rot_z(theta)
+    local c, s = cos(theta), sin(theta)
+    return {
+        c, -s, 0, 0,
+        s, c, 0, 0,
+        0, 0, 1, 0,
+        0, 0, 0, 1
+    }
+end
+
 function m_translate(x,y,z)
     return {
         1,0,0,x,
@@ -194,29 +247,133 @@ function m_translate(x,y,z)
     }
 end
 
-function m_look()
+function m_look(fwd, up)
+    local left = v_norm(v_cross(up, fwd))
+    local new_up = v_norm(v_cross(fwd, left))
     return {
-        -1, 0, 0, 0,
-        0, 1, 0, 0,
-        0, 0, -1, 0,
+        left[1], left[2], left[3], 0,
+        new_up[1], new_up[2], new_up[3], 0,
+        fwd[1], fwd[2], fwd[3], 0,
         0, 0, 0, 1
     }
 end
 
 ---- ENGINE ----
 
+circles = {}
+function circle_make(pos, color, type)
+    local c = {
+        pos = pos,
+        color = color,
+        type = type,
+        time = 0,
+        radius = 3,
+    }
+    add(circles,c)
+    c.update = function()
+        c.time += 1
+        if c.type == 1 then
+            c.radius = 3 - c.time \ 35
+            if c.time % 10 == 0 then c.color = 7 else c.color = 8 end
+            if c.time > 80 then
+                del(circles, c)
+            end
+        elseif c.type == 2 then
+            c.radius = 10 - c.time/2
+            --if c.time % 10 == 0 then c.color = 7 else c.color = 8 end
+            if c.time > 20 then
+                del(circles, c)
+            end
+        end
+    end
+    return c
+end
+
+jlasers = {}
+function jlaser_make(from,target,ent)
+    local three = {1,2,3}
+    local order = {0}
+    for i = 3,1,-1 do
+        local val = flr(rnd(i))+1
+        add(order, three[val])
+        deli(three, val)
+    end
+    local jl = {
+        from = from,
+        to = target,
+        points = {vec(), vec(), vec(), vec()},
+        fired = false,
+        t = 0,
+    }
+    jl.update = function()
+        jl.t += 0.2
+        jl.points[1] = player.pos
+        local a = player.pos
+        local b = jl.to.world_center
+        --print(order[1] .. order[2] .. order[3] .. order[4])
+        if jl.fired then
+            for i = 2,4 do
+                local xo = (b[order[i]] - a[order[i]]) * clamp(jl.t - (i - 2),0,1)
+                jl.points[i] = {
+                    jl.points[i - 1][1],
+                    jl.points[i - 1][2],
+                    jl.points[i - 1][3],
+                    1
+                }
+                jl.points[i][order[i]] += xo
+            end
+        end
+        if not jl.fired and on_beat != nil and jl.t >0 then
+            sfx(10, 1)
+            jl.fired = true
+        end
+        if jl.t > 3 and jl.t - 0.2 <= 3 then
+            circle_make(jl.to.world_center, 12, 2)
+            add(dying_polys,target)
+            ent.hurt()
+        end
+        if jl.t > 4 then
+            del(jlasers, jl)
+        end
+    end
+    add(jlasers, jl)
+    return jl
+end
+
+
 ents = {}
 function ent()
     local e = {
+        pos = {0,0,0},
+        angles = {0,0,0},
         transform = m_identity(),
         parts = {},
         health = 1,
+        dying = false,
+        die_time = 0,
+        die_offset = {0,0,0},
+        visible = true,
+        deadly = false,
     }
+    e.compute_transform = function()
+        e.transform = mm(m_translate(e.pos[1], e.pos[2], e.pos[3]), mm(mm(m_rot_x(e.angles[1]), m_rot_y(e.angles[2])), m_rot_z(e.angles[3])))
+    end
     e.hurt = function()
         e.health -= 1
         if e.health <= 0 then
-            del(ents, e)
-            generate_entgrid()
+            e.dying = true
+        end
+    end
+    e.base_update = function()
+        if e.dying then
+            e.die_time += 1
+            if e.die_time == 1 or e.die_time == 10 or e.die_time == 20 then
+                --circle_make(v_add(e.pos, vec(rnd(2)-1,rnd(2)-1,rnd(2)-1)), 7, 2)
+            end
+            if e.die_time > 80 then
+                del(ents, e)
+                need_entgrid_generation = true
+            end            
         end
     end
     return e
@@ -224,15 +381,20 @@ end
 
 function update_internal_transforms(e)
     for p in all(e.parts) do
-        if p.dirty then
-            p.world_transform = mm(e.transform, p.transform)
+        if e.dirty or p.dirty then
+            if p.transform.is_identity then
+                p.world_transform = e.transform
+            else
+                p.world_transform = mm(e.transform, p.transform)
+            end
             for poly in all(p.polys) do
                 poly.world_center = mv(p.world_transform, poly.center)
-                poly.world_normal = v_sub(mv(p.world_transform, v_add(poly.center, poly.normal)), poly.world_center)
+                poly.world_normal = v_sub(mv(p.world_transform, poly.normoffset), poly.world_center)
             end
         end
         p.dirty = false
     end
+    e.dirty = false
 end
 
 entgrid = {}
@@ -285,8 +447,10 @@ function poly(points, target)
         palette = nil,
         target = target or false,
         selected = false,
-        shadow = true
+        shadow = true,
+        die_time = 0,
     }
+    p.normoffset = v_add(p.center, p.normal)
     if target then p.fill = 0b0000000001000000 end
     return p
 end
@@ -300,54 +464,67 @@ function draw_3d_scene(t, target2d)
     -- Make a set of bins to place all polygons into based on distance from camera
     -- This is like a Radix sort. 
     local num_polys_queued = 0
+    local polycap = 60
 
     zbins = {}
     for i = 1, 32 do
         add(zbins, {})
     end
 
-    for e in all(get_visible_ents(camera.pos)) do
-        for part in all(e.parts) do
-            local trans
-            if e.static then
-                trans = t
-            else
-                trans = mm(t, part.world_transform) -- slow
-            end
-             
-            for p in all(part.polys) do
-                if num_polys_queued > 60 then print("over poly limit!!") break end
-                --local mvt = part.world_transform
-                --p.world_center = mv(mvt, p.center)
-                --local norm = v_sub(mv(mvt, v_add(p.center, p.normal)), p.world_center)
-                local norm = p.world_normal
-                local delta = v_norm(v_sub(p.world_center, camera.pos))
-                local dot = v_dot(delta, norm)
-                local behind = v_dot(delta, camera.fwd)
-                if behind > 0 and dot < 0 then -- backface culling
-                    local t_center = mv(trans, p.center)
-                    local d = v_mag(t_center)
-                    local bin = 32 - clamp((d * 32 \ -(camera.far - camera.near)), 0, 31)
-                    add(zbins[bin], {ent=e, part=part, poly=p, transform=trans, center_2d=t_center, center=p.center, dot = dot})
-                    num_polys_queued += 1
-                end
-            end
-            if num_polys_queued > 60 then break end
-        end
-        if num_polys_queued > 60 then break end
+    for c in all(circles) do
+        local dist = v_mag(v_sub(c.pos, camera.pos))
+        local bin = 32 - clamp((dist * 32 \ -(camera.far - camera.near)), 0, 31)
+        add(zbins[bin], {type='circle', circle=c, dist=dist})
     end
-    print(num_polys_queued)
+
+    for e in all(get_visible_ents(camera.pos)) do
+        if e.visible then
+            for part in all(e.parts) do
+                local trans
+                if e.static then
+                    trans = t
+                else
+                    trans = mm(t, part.world_transform) -- slow
+                end
+                
+                for p in all(part.polys) do
+                    if num_polys_queued >= polycap then break end--print("over poly limit!!") break end
+                    local norm = p.world_normal
+                    
+                    local delta = v_sub(p.world_center, camera.pos)
+                    
+                    -- delta needs normalize or no?
+                    local dot = delta[1] * norm[1] + delta[2] * norm[2] + delta[3] * norm[3]
+                    if dot < 0 and p.die_time < 20 then
+                        local dist = v_mag(delta)
+                        --local t_center = mv(trans, p.center)
+                        --local d = v_mag(t_center)
+                        local bin = 32 - clamp((dist * 32 \ -(camera.far - camera.near)), 0, 31)
+                        add(zbins[bin], {type='ent', ent=e, part=part, poly=p, transform=trans, center_2d=t_center, center=p.center, dot = dot, die_time = e.die_time})
+                        num_polys_queued += 1
+                    end
+                end
+                if num_polys_queued >= polycap then break end
+            end
+            if num_polys_queued >= polycap then break end
+        end
+    end
+    add(debugs,num_polys_queued)
 
     --return end function _QWERTY()
 
-    fillp()
-    for i, bin in pairs(zbins) do
-        for p in all(bin) do
-            if p.poly.shadow and p.center_2d[3] / p.center_2d[4] > -1 and p.center_2d[3]/ p.center_2d[4] < 1 then
-                circfill(p.center_2d[1] / p.center_2d[4] * 64 + 64, p.center_2d[2] / p.center_2d[4] * 64 + 64, 4 / (p.center_2d[3] / p.center_2d[4]), 0)
+    if false then
+        fillp()
+        for i, bin in pairs(zbins) do
+            for p in all(bin) do
+                if p.type=="ent" and p.poly.shadow and p.center_2d[3] / p.center_2d[4] > -1 and p.center_2d[3]/ p.center_2d[4] < 1 then
+                    circfill(p.center_2d[1] / p.center_2d[4] * 64 + 64, p.center_2d[2] / p.center_2d[4] * 64 + 64, 4 / (p.center_2d[3] / p.center_2d[4]), 0)
+                end
             end
         end
     end
+
+    --return end function _QWERTY()
 
     -- Go thru bins and draw each polygon
     for i, bin in pairs(zbins) do
@@ -379,73 +556,109 @@ function draw_3d_scene(t, target2d)
             pattern = ░
         end
         for p in all(bin) do
-            -- Figure out 2d coords of each pt
-            local pts2d = {}
-            local reject = false
-            for j = 1, #p.poly.points do
-                local pt = p.poly.points[j]
-                local pta = mv(p.transform, pt)
-                local ptb = {pta[1] / pta[4], pta[2] / pta[4], pta[3] / pta[4], 1}
-                if ptb[3] < -1 or ptb[3] > 1 then
-                    reject = true
-                    break
-                else
-                    add(pts2d, {ptb[1] * 64 + 64, ptb[2] * 64 + 64, ptb[3], 1})
+            if p.type == "ent" then
+                -- Figure out 2d coords of each pt
+                local pts2d = {}
+                local reject = false
+                for j = 1, #p.poly.points do
+                    local pt = p.poly.points[j]
+                    local pta = mv(p.transform, pt)
+                    local ptb = {pta[1] / pta[4], pta[2] / pta[4], pta[3] / pta[4], 1}
+                    if ptb[3] < -1 or ptb[3] > 1 then
+                        reject = true
+                        break
+                    else
+                        add(pts2d, {ptb[1] * 64 + 64, ptb[2] * 64 + 64, ptb[3], 1})
+                    end
                 end
-            end
-            if not reject then
+                local diefill = nil
+                if not reject then
+                    fill = p.poly.fill
+                    if p.poly.pulse and i > 16 then
+                        if pulse_t < 4 then fill = 0b000000000000
+                        elseif pulse_t < 8 then fill = 0b0101101001011010 end
+                    end
+                    if p.die_time > 0 then
+                        diefill = flr(rnd(65535))
+                        for i = 1, p.die_time \ 10 do
+                            diefill |= flr(rnd(65535))
+                        end
+                        fill = diefill
+                    end                
+                    if fill and #pts2d == 4 then
+                        fillp(fill)
+                        trifill(pts2d[1][1],pts2d[1][2],pts2d[2][1],pts2d[2][2],pts2d[3][1],pts2d[3][2],color)
+                        trifill(pts2d[1][1],pts2d[1][2],pts2d[3][1],pts2d[3][2],pts2d[4][1],pts2d[4][2],color)                
+                    end
 
-                if p.poly.fill and #pts2d == 4 then
-                    fillp(p.poly.fill)
-                    trifill(pts2d[1][1],pts2d[1][2],pts2d[2][1],pts2d[2][2],pts2d[3][1],pts2d[3][2],color)
-                    trifill(pts2d[1][1],pts2d[1][2],pts2d[3][1],pts2d[3][2],pts2d[4][1],pts2d[4][2],color)                
-                end
-
-                if p.poly.target then
-                    local pc = p.center_2d
-                    local pch = {pc[1] / pc[4], pc[2] / pc[4], pc[3] / pc[4], 1}
-                    if pch[3] > -1 and pch[3] < 1 then
-                        --DRAW NORMALS 
-                        --[[
-                        local normoff = v_add(p.center, p.poly.normal)
-                        local norm2d = final_point(p.transform, normoff)
-                        fillp(█)
-                        line(pc[1] / pc[4] * 64 + 64, pc[2] / pc[4] * 64 + 64, norm2d[1], norm2d[2], 7)
-                        ]]--
-                        --print(p.dot, pc[1] / pc[4] * 64 + 64, pc[2] / pc[4] * 64 + 64, 7)
-                        local xd = abs(pc[1] / pc[4] * 64 + 64 - target2d[1])
-                        local yd = abs(pc[2] / pc[4] * 64 + 64 - target2d[2])
-                        if xd < 25 and yd < 25 then
-                            local ccolor = 5
-                            if xd < 5 and yd < 5 then
-                                ccolor = 7
-                                if p.poly.target and not p.poly.selected and player.selecting and #player.selected < 8 then
-                                    local data = {ent=p.ent, part=p.part, poly=p.poly}
-                                    add(player.selected, data)
-                                    add(player.selected_chimes, data)
-                                    p.poly.selected = true
-                                    player.last_select_time = 0
+                    if p.poly.target and i > 8 then
+                        local pc = mv(p.transform, p.center)
+                        local pch = {pc[1] / pc[4], pc[2] / pc[4], pc[3] / pc[4], 1}
+                        if pch[3] > -1 and pch[3] < 1 then
+                            --DRAW NORMALS 
+                            --[[
+                            local normoff = v_add(p.center, p.poly.normal)
+                            local norm2d = final_point(p.transform, normoff)
+                            fillp(█)
+                            line(pc[1] / pc[4] * 64 + 64, pc[2] / pc[4] * 64 + 64, norm2d[1], norm2d[2], 7)
+                            ]]--
+                            --print(p.dot, pc[1] / pc[4] * 64 + 64, pc[2] / pc[4] * 64 + 64, 7)
+                            local xd = abs(pc[1] / pc[4] * 64 + 64 - target2d[1])
+                            local yd = abs(pc[2] / pc[4] * 64 + 64 - target2d[2])
+                            if p.poly.selected or xd < 25 and yd < 25 then
+                                local ccolor = 5
+                                if xd < 5 and yd < 5 then
+                                    ccolor = 7
+                                    if p.poly.target and not p.poly.selected and player.selecting and #player.selected < 8 then
+                                        local data = {ent=p.ent, part=p.part, poly=p.poly}
+                                        add(player.selected, data)
+                                        add(player.selected_chimes, data)
+                                        p.poly.selected = true
+                                        player.last_select_time = 0
+                                    end
                                 end
-                            end
-                            circfill(pc[1] / pc[4] * 64 + 64, pc[2] / pc[4] * 64 + 64, 1, ccolor)
-                        end 
+                                --circfill(pc[1] / pc[4] * 64 + 64, pc[2] / pc[4] * 64 + 64, 1, ccolor)
+                                local sn = 33
+                                if p.ent.deadly then sn = 34 end
+                                if p.poly.selected then sn = 35 end
+                                spr(sn, pc[1] / pc[4] * 64 + 60, pc[2] / pc[4] * 64 + 60)
+                            end 
+                        end
+                        if p.poly.selected then
+                            --circfill(pc[1] / pc[4] * 64 + 64, pc[2] / pc[4] * 64 + 64, 1, 7)               
+                        end
                     end
-                    if p.poly.selected then
-                        circfill(pc[1] / pc[4] * 64 + 64, pc[2] / pc[4] * 64 + 64, 1, 7)               
+
+                    -- Draw lines between each point pair
+                    if not p.poly.fill or extra_line then
+                        fillp(diefill or pattern)
+                        for i = 1, #pts2d do
+                            if p.poly.selected then special_color = 7 else special_color = nil end
+                            local pt1 = pts2d[i]
+                            local pt2 = pts2d[i % #pts2d + 1]
+                            line(pt1[1], pt1[2], pt2[1], pt2[2], special_color or color)
+                        end
                     end
                 end
-
-                -- Draw lines between each point pair
-                --if not p.poly.fill or extra_line then
-                    for i = 1, #pts2d do
-                        if p.poly.selected then special_color = 7 else special_color = nil end
-                        local pt1 = pts2d[i]
-                        local pt2 = pts2d[i % #pts2d + 1]
-                        fillp(pattern)
-                        line(pt1[1], pt1[2], pt2[1], pt2[2], special_color or color)
-                    end
-                --end
+            elseif p.type == "circle" then
+                local pos2d = final_point(t, p.circle.pos)
+                circfill(pos2d[1], pos2d[2], p.circle.radius / (p.dist / 10), p.circle.color)
             end
+        end
+    end
+
+    -- Could isolate each line, move to bins, etc
+    for jl in all(jlasers) do
+        for i = 1, min(jl.t + 1,3) do
+            
+            local pt1 = jl.points[i]
+            local pt2 = jl.points[i+1]
+            local pt12d = final_point(t, pt1)
+            local pt22d = final_point(t, pt2)
+            circfill(pt12d[1], pt12d[2], 2, 12)
+            circfill(pt22d[1], pt22d[2], 2, 7)
+            
+            line(pt12d[1], pt12d[2], pt22d[1], pt22d[2], 12)
         end
     end
 end
@@ -493,70 +706,221 @@ function serialize_entity(e)
     return str
 end
 
----- PICO ----
+function make_missile(pos, vel)
+    local e = ent()
+    local polys = {
+        poly({
+            {-.25, -.25, 0, 1},
+            {.25, -.25, 0, 1},
+            {.25, .25, 0, 1},
+            {-.25, .25, 0, 1}
+        }, true)
+    }
+    e.pos = vec(pos[1],pos[2],pos[3])
+    e.vel = {vel[1],vel[2],vel[3]}
+    e.speed = 0.5
+    e.time = 0
+    e.parts = {part(polys)}
+    --e.angles = {0,0,0}
+    e.update = function()
+        if e.dying then return end
+        e.time += 1
+        if e.time % 30 == 0 then
+            circle_make(v_sub(vec(e.pos[1],e.pos[2],e.pos[3]),v_mul(e.vel, 2)), 8, 1)
+        end
+        local delta = v_sub(v_add(camera.pos,{0,0,-3 / ((e.time / 200)+1)}), e.pos)
+        local towards = v_norm(delta)
+        local dist = v_mag(delta)
+        if v_mag(v_sub(camera.pos, e.pos)) < 1 then
+            del(ents, e)
+            need_entgrid_generation = true
+            take_damage(e)
+        end
+        local distinc = max(10 / dist,1)
+        e.vel = v_add(e.vel, v_mul(towards, 0.001 * distinc))
+        e.vel = v_limit(e.vel, max(0.05 / distinc, 0.03))
+        e.pos = v_add(e.pos, e.vel)
+        e.transform = mm(
+            m_translate(e.pos[1],e.pos[2],e.pos[3]),
+            m_rot_y(-camera.angles[2])
+        )
+        e.parts[1].dirty = true
+        update_internal_transforms(e)
+        add(debugs, str_point(e.pos))
+    end
+    --e.compute_transform()
+    add(ents, e)
+    update_internal_transforms(e)
+    return e
+end
 
+function make_artillery(pos)
+    local e = deserialize_entity(enemy_artillery)
+    e.time = 0
+    --e.transform = m_translate(8,-2,0)
+    e.update = function()
+        e.parts[2].transform = m_rot_y(tf / 350 * 4)
+        e.parts[2].dirty = true
+        if abs(e.pos[3] - player.pos[3]) < 20 then
+            e.time += 1
+            if e.time % 380 == 20 then
+                make_missile({e.pos[1],e.pos[2] + 3,e.pos[3]}, vec(0,.1,0))
+                need_entgrid_generation = true
+            end
+        end
+        update_internal_transforms(e)        
+    end
+    e.angles[3] = 0
+    e.pos = pos
+    e.compute_transform()
+    add(ents,e)   
+    update_internal_transforms(e)
+end
+
+function make_minion(pos, targetxy, vel, killer)
+    local e = deserialize_entity(enemy_minion)
+    e.pos = pos
+    e.vel = vel
+    e.targetxy = targetxy
+    e.time = 0
+    e.visible = false
+    e.killer = killer
+    e.update = function()
+        if e.dying then return end
+        local zdiff = abs(camera.pos[3] - e.pos[3])
+        if zdiff > 22 then return end
+        e.visible = true
+        e.time += 1
+        local target = e.targetxy
+        if e.time < 50 then
+            target = {e.targetxy[1] + (e.targetxy[1] - pos[1]) * 2,e.targetxy[2] + (e.targetxy[2] - pos[2]) * 2,0}
+        end
+        local delta = {target[1] - e.pos[1], target[2] - e.pos[2], 0}
+        if abs(delta[1]) + abs(delta[2]) > 0.1 or (e.killer and zdiff < 12) then
+            local dist = v_mag(delta)
+            local dir = v_norm(delta)
+            e.vel = v_add(e.vel, v_mul(dir, 0.01 + clamp(e.time-40,0,20) / 10000 * dist))--0.04 / max(dist,0.5) * (dist / 10)))
+            e.vel = v_mul(e.vel, 0.97 - min(e.time,20) / 2000)
+            e.vel = v_limit(e.vel, 1)
+            if zdiff < 11 then
+                e.vel[3] = 0.05
+            end                        
+            e.pos = v_add(e.pos, v_mul(e.vel, 1))
+            e.angles[3] = sin(clamp(-e.vel[1], -1,1)) * 1
+            e.angles[2] = sin(clamp(-e.vel[1], -1,1)) * -1
+            e.dirty = true
+            e.compute_transform()
+            update_internal_transforms(e)          
+        end
+        if zdiff < 12 then
+            if e.killer then
+                e.deadly = true
+                e.targetxy = v_mul(e.targetxy, 0.1)
+                if zdiff < 4 then
+                    take_damage(e)
+                    del(ents, e)
+                    need_entgrid_generation = true
+                end
+            else
+                e.targetxy = {0,30,0}
+                if e.pos[2] > 20 then
+                    del(ents, e)
+                    need_entgrid_generation = true
+                end
+            end
+        end
+            
+    
+        --add(debugs, #e.parts[1].polys[2].points)
+        
+    end
+    e.compute_transform()
+    update_internal_transforms(e)
+    add(ents, e)
+    return e
+end
+
+---- PICO ----
 function _init()
     camera = {
-        pos=vec(0,1.6,0),
+        pos=vec(0,0,57),
         fwd=vec(0,0,1),
         angles=vec(),
         angle_velocities = vec(),
         view_mat = nil,
         near = -0.5,
-        far = -25,
+        far = -30,
     }
 
     player = {
-        health = 1,
+        pos = v_add(camera.pos, vec(0,0,-5.5)),
         cursor_angles = vec(),
         selecting = false,
         selected = {},
         selected_chimes = {},
         last_select_time = 0,
+        stage = 2,
+        health = 0,
+        hit_time = 100,        
     }
-    camera.pos = vec(0,0,20)
     perspective_transform = m_perspective(camera.near, camera.far, -2 * camera.near * 1.62, -2 * camera.near * 1.62)
-    
-    
-    e = deserialize_entity(enemy_artillery)
-    e.transform = m_translate(8,0,0)
-    e.update = function()
-        e.parts[2].transform = m_rot_y(tf / 350 * 4)
-        e.parts[2].dirty = true
-        update_internal_transforms(e)        
-    end    
 
-    add(ents,e)   
-    update_internal_transforms(e)
-    
+    --make_artillery({8, -2, 0})
+    --make_artillery({-8, -2, -24})
+
+    for i = 0,3 do 
+        make_minion({5,-2,30 - i * 0.5}, {-5 + i * 3.33,1,0}, {0,0.25,0}, i == 0)
+    end
+    for i = 0,3 do 
+        make_minion({-5,2,23 - i * 0.5}, {5 - i * 3.33,-1,0}, {0,0.25,0}, i == 0)
+    end    
+    for i = 0,5 do
+        local theta = i / 6 * 6.2818
+        make_minion({0,-4,15 - i * 0.5}, {cos(theta) * 3,sin(theta) * 3,0}, {0,0.25,0}, i == 0)
+    end
 
     for i = -30, 30 do
         local e = ent()
         local polys = {}
-        for j = -1,1 do
+        for j = -1,1, 2 do
             local pol = poly({
-                vec(-3 + j * 8 + i % 2 - 0.5, -3, 0.5 + i * 1.5),
-                vec(3 + j * 8 + i % 2 - 0.5, -3, 0.5 + i * 1.5),
-                vec(3 + j * 8 + i % 2 - 0.5, -3, -0.5 + i * 1.5),
-                vec(-3 + j * 8 + i % 2 - 0.5, -3, -0.5 + i * 1.5),
+                vec(-1 + j * 1.25 + i % 2 - 0.5, -3, 0.5 + i * 2),
+                vec(1 + j * 1.25 + i % 2 - 0.5, -3, 0.5 + i * 2),
+                vec(1 + j * 1.25 + i % 2 - 0.5, -3, -0.5 + i * 2),
+                vec(-1 + j * 1.25 + i % 2 - 0.5, -3, -0.5 + i * 2),
             })
             pol.shadow = false
+            pol.pulse = true
             --pol.fill = 0b0101101101011110
             add(polys, pol)    
         end
         e.parts = {part(polys, m_identity())}
-        e.transform = m_identity()--m_translate(i % 2 - 0.5,-3,i * 1.5)
         e.static = true
-        e.entgrid_pos = {0,-3,i * 1.5}
+        e.entgrid_pos = {0,-3,i * 2}
         add(ents, e)
         update_internal_transforms(e)
     end
+    
+
     generate_entgrid()
 
     music(0,0,1)
 end
 
+function take_damage(source)
+    player.hit_time = 0
+    player.stage -= 1
+end
+
 function update_player()
+    
+    if player.hit_time < 20 and player.hit_time % 5 == 0 then
+        for i = 0, 2 do
+            circle_make({player.pos[1] + rnd(2) - 1,player.pos[2] + rnd(2) - 1,player.pos[3] - 1,1}, 7, 2)
+        end
+    end
+    player.hit_time += 1
+
     if btn(0) then
         player.cursor_angles[2] -= 0.02
     end
@@ -569,14 +933,18 @@ function update_player()
     if btn(3) then
         player.cursor_angles[1] += 0.02
     end 
+    player.cursor_angles[2] = clamp(player.cursor_angles[2], -1.6, 1.6)
+    player.cursor_angles[1] = clamp(player.cursor_angles[1], -0.75, 1)
     player.selecting = btn(5)
     if not player.selecting and #player.selected > 0 then
-        sfx(9)
+        sfx(9,1)
+        local n = 0
         for data in all(player.selected) do
-            add(dying_polys,data.poly)
             data.poly.selected = false
             data.poly.target = false
-            data.ent.hurt()
+            local jl = jlaser_make(player, data.poly, data.ent)
+            jl.t -= n
+            n += 1.25
         end
         player.selected = {}
     end
@@ -595,12 +963,18 @@ function update_player()
         camera.angle_velocities[axis] *= 0.9
         camera.angles[axis] += camera.angle_velocities[axis]
     end
+
+    player.pos = v_add(
+        v_mul(player.pos, 0.9),
+        v_mul(v_add(camera.pos, v_add(v_mul(camera.fwd, 2), vec(0,-0.5 + sin(tf / 13) * 0.05,0))), 0.1)
+    )
 end
 
 function on_beat_update(beat)
     
     if beat % 4 == 0 then
         --camera.pos -= vec(0,0,0.3)
+        pulse_t = 0
     end
     if beat % 1 == 0 then
         if #player.selected_chimes > 0 then
@@ -612,10 +986,16 @@ function on_beat_update(beat)
     --music(0, 0, 4)
 end
 
-tf = 0
+speed = 0.02
+need_entgrid_generation = true
 function _update60()
+    pulse_t += 1
     debugs = {}
-    camera.pos = v_sub(camera.pos, vec(0,0,0.02))
+    if need_entgrid_generation then
+        generate_entgrid()
+        need_entgrid_generation = false
+    end
+    camera.pos = v_sub(camera.pos, vec(0,0,speed))
     local current_music_timing = stat(20)
     if current_music_timing != last_music_timing and current_music_timing then
         on_beat_update(current_music_timing)
@@ -625,22 +1005,25 @@ function _update60()
     end
 
     for p in all(dying_polys) do
-        for i = 1, #p.points do
-            local delta = v_sub(p.center, p.points[i])
-            p.points[i] = v_add(p.points[i], delta * 0.03)
+        p.die_time += 1
+        if p.die_time < 20 then
+            for i = 1, #p.points do
+                local delta = v_sub(p.center, p.points[i])
+                p.points[i] = v_add(p.points[i], v_mul(delta, 0.1))
+            end
         end
     end
 
-    --camera.angles = player.cursor_angles
     local rot = mm(m_rot_x(camera.angles[1]), m_rot_y(camera.angles[2]))
-    camera.view_mat = mm(m_look(), rot)
+    camera.view_mat = mm(m_look({0,0,-1},{0,1,0}), rot)
     camera.fwd = mv(mm(m_rot_y(-camera.angles[2]), m_rot_x(-camera.angles[1])), vec(0,0,-1))
-    --add(debugs, str_matrix(camera.view_mat))
-    --add(debugs, str_point(camera.fwd))
     
-    for e in all(ents) do
+    for e in all(get_visible_ents(camera.pos)) do
+        if e.base_update then e.base_update() end
         if e.update then e.update() end
     end
+    for c in all(circles) do c.update() end
+    for jl in all(jlasers) do jl.update() end
 
     update_player()
 
@@ -648,16 +1031,13 @@ function _update60()
     last_music_timing = current_music_timing
 end
 
-last_music_timing = 0
-on_beat = nil
-
 function draw_bg(t)
     local c1 = 5
-    local c2 = 6
+    local c2 = 5
     if on_beat != nil and on_beat % 4 == 0 then
         c1, c2 = 5, 10
     end    
-    local sy = final_point(t, camera.pos + vec(0,0,-50))[2]
+    local sy = final_point(t, v_add(camera.pos, vec(0,0,-50)))[2]
     for z = 0, 15 do
         local bha = z / 16 * 6.2818
         local y = background_heights[z + 1] * 4 + sy-- - sin(camera.angles[1]) * 80
@@ -685,10 +1065,35 @@ function draw_bg(t)
     rectfill(0, sy + 50, 128, 128, 0x01)      
 end
 
+function draw_player(t, cx)
+    local pos = final_point(t, player.pos)
+    if pos[3] > 0 and pos[3] < 1 then
+        local w = 32--min(8 / pos[3],32)
+        local h = w
+        local offset = 0
+        local flip = false
+        if abs(cx - 64) > 8 then offset = 32 end
+        if abs(cx - 64) > 24 then offset = 64 end
+        if cx < 64 then flip = true end
+        sspr(0 + offset,32,32,32, pos[1] - w / 2, pos[2] - h / 2, w, h, flip, false)
+        for i = 0, 14 do
+            for j = 0, 14 do
+                local x = i + pos[1] - w / 2 + 9
+                local y = j + pos[2] - h / 2 + 2
+                local dx = i - 7
+                local dy = j - 7
+                if dx*dx + dy*dy < 8 * 8 then
+                    pset(x,y, recolor[pget(x,y)+1])
+                end
+            end
+        end
+    end
+end
+
 function _draw()
     local t = mm(mm(perspective_transform, camera.view_mat), m_translate(-camera.pos[1], -camera.pos[2], -camera.pos[3]))
     cls()  
-    
+    draw_bg(t)
     local cursorm = mm(m_rot_y(-player.cursor_angles[2]), m_rot_x(-player.cursor_angles[1]))
     local target2d = final_point(t, v_add(camera.pos, mv(cursorm, vec(0,0,-5))))
 
@@ -702,12 +1107,19 @@ function _draw()
         end
     end
 
+    draw_player(t, target2d[1])
+
+    pal()
+    if player.hit_time < 20 then
+        pal({2,2,2,2,2,8,7,8,8,8,8,8,8,8,8}, 1)
+    end
+
     color(7)
     cursor()
     for d in all(debugs) do
         print(d)
     end
-    --print(stat(20))
+    print(stat(20))
 end
 __gfx__
 000000000000000000000000000000000000000000cccc000cccccc00cccccc00cccccc00cccccc00ccccc000cccccc00cccccc00cccccc00000000000000000
@@ -724,6 +1136,54 @@ __gfx__
 000000000070000000000700000c00000000c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000700000000007000001ccc00ccc10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000005777000077750000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000009999000088880000777700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000000997799008877880077cc770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000097997900878878007c77c70000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000097997900878878007c77c70000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000000997799008877880077cc770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000009999000088880000777700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000777770000000000000000000000000007777700000000000000000000000000077777000000000000000000000000000000000000000000000
+00000000000077007007700000000000000000000000770070077000000000000000000000007700700770000000000000000000000000000000000000000000
+00000000000700007000070000000000000000000007000070000700000000000000000000070007000007000000000000000000000000000000000000000000
+00000000007000007000007000000000000000000070000070000070000000000000000000700007000000700000000000000000000000000000000000000000
+00000000070000007000000700000000000000000700000700000007000000000000000007000007000000070000000000000000000000000000000000000000
+00000000070000007000000700000000000000000700000700000007000000000000000007000070000000070000000000000000000000000000000000000000
+00000000700000007000000070000000000000007000000700000000700000000000000070000070000000007000000000000000000000000000000000000000
+00000000700000007000000070000000000000007000000700000000700000000000000070000070000000007000000000000000000000000000000000000000
+00000000770000007000000770000000000000007700000700000007700000000000000077000070000000077000000000000000000000000000000000000000
+00000000707770007000777070000000000000007077700700007770700000000000000070777070000077707000000000000000000000000000000000000000
+00000000700007777777000070000000000000007000077777770000700000000000000070000777777700007000000000000000000000000000000000000000
+00000000070000007000000700000000000000000700000700000007000000000000000007000070000000070000000000000000000000000000000000000000
+00000000070000007000000700000000000000000700000700000007000000000000000007000070000000070000000000000000000000000000000000000000
+00000000007000007000007000000000000000000070000700000070000000000000000000700007000000700000000000000000000000000000000000000000
+00000000000700007000070000000000000000000007000700000700000000000000000000070007000007000000000000000000000000000000000000000000
+00000000000077007007700000000000000000000000770070077000000000000000000070007700700770000000000000000000000000000000000000000000
+00000000000000777770000000000000000000007000007777700000000000000000000707700077777000000000000000000000000000000000000000000000
+00000007000000070700000007000000000000070777000707000000000000000000000070077707070000000000000000000000000000000000000000000000
+00000070777777700077777770700000000000007000777000777000700000000000000000000070007000000000000000000000000000000000000000000000
+00000007000000070700000007000000000000000000000707000777070000000000000000000007070777007000000000000000000000000000000000000000
+00000000000000007000000000000000000000000000000070000000700000000000000000000000700000770700000000000000000000000000000000000000
+00000000000000007000000000000000000000000000000070000000000000000000000000000000700000007000000000000000000000000000000000000000
+00000000000000007000000000000000000000000000000070000000000000000000000000000000700000000000000000000000000000000000000000000000
+00000000000000007000000000000000000000000000000070000000000000000000000000000000700000000000000000000000000000000000000000000000
+00000000000000007000000000000000000000000000000070000000000000000000000000000000700000000000000000000000000000000000000000000000
+00000000000000007000000000000000000000000000000070000000000000000000000000000000700000000000000000000000000000000000000000000000
+00000000000000007000000000000000000000000000000070000000000000000000000000000000700000000000000000000000000000000000000000000000
+00000000000000070700000000000000000000000000000707000000000000000000000000000007070000000000000000000000000000000000000000000000
+00000000000000007000000000000000000000000000000070000000000000000000000000000000700000000000000000000000000000000000000000000000
 __sfx__
 000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -735,7 +1195,7 @@ __sfx__
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 95100000245551b50021500045002855500500005000050026555005000050000500295550050000500005002b5550050000500005002d5550050000500005002f55500500005000050030555005000050000500
 490300000c5701363516620196101b6101c6101e6001f60020600056000d600066001f60000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+910200002871028620285102851006610005000050000500005000050000500005000050000500005000050000500005000050000500005000050000500005000050000500005000050000500005000050000500
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
