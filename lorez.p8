@@ -34,6 +34,9 @@ enemy_minion = [[1
 1;-0.2,-0.3,0;0.2,-0.3,0;0.5,0.3,0;-0.5,0.3,0
 0;0.9,-0.5,-1;1,-0.3,1;1,0.3,1;0.9,0.5,-1/0;1,-0.3,1;1.1,-0.5,-1;1.1,0.5,-1;1,0.3,1]]
 
+enemy_missile = [[1
+0;0.3367,0.0957,0;0.0096,0.0027,-1;0.0024,-0.0097,-1;0.0858,-0.3393,0/0;-0.0853,-0.3394,0;-0.0024,-0.0097,-1;-0.0096,0.0027,-1;-0.3368,0.0953,0/0;-0.2513,0.2436,0;-0.0072,0.0069,-1;0.0072,0.007,-1;0.2508,0.2441,0/1;0.1,-0.1,-0.25;0.1,0.1,-0.25;-0.1,0.1,-0.25;-0.1,-0.1,-0.25]]
+
 ---- GLOBALS ----
 tf = 0
 pulse_t = 0
@@ -464,7 +467,7 @@ function draw_3d_scene(t, target2d)
     -- Make a set of bins to place all polygons into based on distance from camera
     -- This is like a Radix sort. 
     local num_polys_queued = 0
-    local polycap = 60
+    local polycap = 600
 
     zbins = {}
     for i = 1, 32 do
@@ -495,7 +498,7 @@ function draw_3d_scene(t, target2d)
                     
                     -- delta needs normalize or no?
                     local dot = delta[1] * norm[1] + delta[2] * norm[2] + delta[3] * norm[3]
-                    if dot < 0 and p.die_time < 20 then
+                    if e.deadly or dot < 0 and p.die_time < 20 then
                         local dist = v_mag(delta)
                         --local t_center = mv(trans, p.center)
                         --local d = v_mag(t_center)
@@ -605,7 +608,7 @@ function draw_3d_scene(t, target2d)
                             --print(p.dot, pc[1] / pc[4] * 64 + 64, pc[2] / pc[4] * 64 + 64, 7)
                             local xd = abs(pc[1] / pc[4] * 64 + 64 - target2d[1])
                             local yd = abs(pc[2] / pc[4] * 64 + 64 - target2d[2])
-                            if p.poly.selected or xd < 25 and yd < 25 then
+                            if p.ent.deadly or p.poly.selected or xd < 25 and yd < 25 then
                                 local ccolor = 5
                                 if xd < 5 and yd < 5 then
                                     ccolor = 7
@@ -708,27 +711,45 @@ end
 
 function make_missile(pos, vel)
     local e = ent()
+    --[[
     local polys = {
-        poly({
-            {-.25, -.25, 0, 1},
-            {.25, -.25, 0, 1},
-            {.25, .25, 0, 1},
-            {-.25, .25, 0, 1}
-        }, true)
     }
+    for i = 1, 3 do
+        local t = i / 3 * 6.2818
+        local s1, c1, s2, c2 = sin(t + 0.8), cos(t + 0.8), sin(t - 0.8), cos(t - 0.8)
+        add(polys, 
+            poly({
+                {s2 * 0.35, c2 * 0.35, 0, 1},
+                {s2 * 0.01, c2 * 0.01, -1, 1},
+                {s1 * 0.01, c1 * 0.01, -1, 1},
+                {s1 * 0.35, c1 * 0.35, 0, 1},
+            }, false)
+        )
+    end
+    add(polys, 
+        poly({
+            {0.1, -0.1, -0.25, 1},
+            {0.1, 0.1, -0.25, 1},
+            {-0.1, 0.1, -0.25, 1},
+            {-0.1, -0.1, -0.25, 1},
+        }, true)
+    )  ]]
+    --e.parts = {part(polys)}
+    e = deserialize_entity(enemy_missile)  
+    e.deadly = true
     e.pos = vec(pos[1],pos[2],pos[3])
     e.vel = {vel[1],vel[2],vel[3]}
     e.speed = 0.5
     e.time = 0
-    e.parts = {part(polys)}
-    --e.angles = {0,0,0}
+    
     e.update = function()
         if e.dying then return end
         e.time += 1
         if e.time % 30 == 0 then
             circle_make(v_sub(vec(e.pos[1],e.pos[2],e.pos[3]),v_mul(e.vel, 2)), 8, 1)
         end
-        local delta = v_sub(v_add(camera.pos,{0,0,-3 / ((e.time / 200)+1)}), e.pos)
+        local off = min(-16 / ((e.time / 100)+1) + (2 / abs(e.pos[1] + e.pos[2])),0)
+        local delta = v_sub(v_add(camera.pos,{0,0,off}), e.pos)
         local towards = v_norm(delta)
         local dist = v_mag(delta)
         if v_mag(v_sub(camera.pos, e.pos)) < 1 then
@@ -736,42 +757,84 @@ function make_missile(pos, vel)
             need_entgrid_generation = true
             take_damage(e)
         end
-        local distinc = max(10 / dist,1)
+        local distinc = 1--max(10 / dist,1)
         e.vel = v_add(e.vel, v_mul(towards, 0.001 * distinc))
         e.vel = v_limit(e.vel, max(0.05 / distinc, 0.03))
         e.pos = v_add(e.pos, e.vel)
+        local t = e.time / 20
         e.transform = mm(
             m_translate(e.pos[1],e.pos[2],e.pos[3]),
-            m_rot_y(-camera.angles[2])
+            m_look(v_norm({e.vel[1],e.vel[2],e.vel[3]}), vec(0,1,0))
         )
         e.parts[1].dirty = true
         update_internal_transforms(e)
-        add(debugs, str_point(e.pos))
     end
-    --e.compute_transform()
     add(ents, e)
     update_internal_transforms(e)
+    printh(serialize_entity(e), "entity.txt")
     return e
 end
 
 function make_artillery(pos)
-    local e = deserialize_entity(enemy_artillery)
+    --local e = deserialize_entity(enemy_artillery)
+    local e = ent()
+    local rads = {2, 1}
+    local attens = {0.5,1}
+    local heights = {1, 3}
+    local y =0
+    for j = 1, 2 do
+        local polys = {}
+        local rad = rads[j]
+        local count = 4
+        for i = 1, count do
+            local s1 = sin(i / count * 6.28 + 0.05 + 0.8) * rad
+            local c1 = cos(i / count * 6.28 + 0.05 + 0.8) * rad
+            local s2 = sin((i + 1) / count * 6.28 - 0.05 + 0.8) * rad
+            local c2 = cos((i + 1) / count * 6.28 - 0.05 + 0.8) * rad  
+            local atten = attens[j]
+            add(polys, poly({
+                vec(s1 * atten,heights[j],c1 * atten),
+                vec(s1,y,c1),
+                vec(s2,y,c2),
+                vec(s2 * atten,heights[j], c2 * atten),
+            }, false))
+        end
+        y += 1
+        add(e.parts, part(polys, m_translate(0, 0, 0)))
+    end
+    local polys = {}
+    local count = 4
+    local rad = 1.25
+    for i = 1, count do
+        local s1 = sin(i / count * 6.28 + 0.05) * rad
+        local c1 = cos(i / count * 6.28 + 0.05) * rad
+        local s2 = sin((i + 1) / count * 6.28 - 0.05) * rad
+        local c2 = cos((i + 1) / count * 6.28 - 0.05) * rad  
+        add(polys, poly({
+            vec(s1,heights[2] + 1,c1),
+            vec(s1,heights[2],c1),
+            vec(s2,heights[2],c2),
+            vec(s2,heights[2] + 1,c2),
+        }, true))
+    end
+    add(e.parts, part(polys, m_translate(0, 0, 0)))
+
     e.time = 0
-    --e.transform = m_translate(8,-2,0)
     e.update = function()
-        e.parts[2].transform = m_rot_y(tf / 350 * 4)
-        e.parts[2].dirty = true
-        if abs(e.pos[3] - player.pos[3]) < 20 then
+        local zdiff = e.pos[3] - player.pos[3]
+        e.parts[3].transform = m_rot_y(tf / 350 * 4)
+        e.parts[3].dirty = true
+        if zdiff > -22 and zdiff < -5 then
             e.time += 1
             if e.time % 380 == 20 then
-                make_missile({e.pos[1],e.pos[2] + 3,e.pos[3]}, vec(0,.1,0))
+                make_missile({e.pos[1],e.pos[2] + 3,e.pos[3]}, vec(0,2,0))
                 need_entgrid_generation = true
             end
         end
         update_internal_transforms(e)        
     end
-    e.angles[3] = 0
     e.pos = pos
+    e.health = 4
     e.compute_transform()
     add(ents,e)   
     update_internal_transforms(e)
@@ -843,7 +906,8 @@ end
 ---- PICO ----
 function _init()
     camera = {
-        pos=vec(0,0,57),
+        --pos=vec(0,0,57),
+        pos=vec(0,0,15),
         fwd=vec(0,0,1),
         angles=vec(),
         angle_velocities = vec(),
@@ -878,6 +942,8 @@ function _init()
         local theta = i / 6 * 6.2818
         make_minion({0,-4,15 - i * 0.5}, {cos(theta) * 3,sin(theta) * 3,0}, {0,0.25,0}, i == 0)
     end
+
+    make_artillery({6, -2, 0})
 
     for i = -30, 30 do
         local e = ent()
