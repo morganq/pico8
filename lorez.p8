@@ -29,41 +29,8 @@ bin_colors = {
     [2] = split("2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,8,8,14,14,14,14,14,14,14,14,14,14,14,14,14,14"),
 }
 -- turn into ints and string em
-bin_patterns = {
-    0b0111111111011111.1, -- 2
-    0b0101111101011111.1, -- 4
-    0b0101111001011011.1, -- 6
-    0b0101111001011011.1,
-    0b0101101001011010.1, -- 8
-    0b0101101001011010.1,
-    0b0101101001011010.1,
-    0b0100101000011010.1, -- 10
-    0b0100101000011010.1,
-    0b0100101000011010.1,
-    0b0000101000001010.1, -- 12/16
-    0b0000101000001010.1,
-    0b0000101000001010.1,
-    0b0000001000000100.1, -- 14/16
-    0b0000001000000100.1,
-    0b0000001000000100.1,
-    0b0000001000000100.1,
-    0b0000000000000000, -- 16/16
-    0b0000000000000000,
-    0b0000000000000000,
-    0b0000000000000000,
-    0b0000000000000000,
-    0b0000000000000000,
-    0b0000000000000000,
-    0b0000000000000000,
-    0b0000000000000000,
-    0b0000000000000000,
-    0b0000000000000000,
-    0b0000000000000000,
-    0b0000000000000000,
-    0b0000000000000000,
-    0b0000000000000000,
-    0b0000000000000000,
-}
+bin_patterns = split("32735.5,24415.5,24155.5,24155.5,23130.5,23130.5,23130.5,18970.5,18970.5,18970.5,2570.5,2570.5,2570.5,516.5,516.5,516.5,516.5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0")
+for p in all(bin_patterns) do printh(p, "patterns.txt") end
 
 ---- GLOBALS ----
 tf = 0
@@ -76,8 +43,54 @@ mmd = 0
 mvd = 0
 
 ---- CLIPPING ----
+clip_inside = 0
+clip_left = 1
+clip_right = 2
+clip_bottom = 4
+clip_top = 8
+function clipcode(x,y)
+    local code = 0
+    if x < -1 then code |= clip_left
+    elseif x > 1 then code |= clip_right end
+    if y < -1 then code |= clip_top
+    elseif y > 1 then code |= clip_bottom end
+    return code
+end
+-- from: https://www.geeksforgeeks.org/line-clipping-set-1-cohen-sutherland-algorithm/
 function clip_line(x1,y1,x2,y2)
-
+    local code1, code2, accept = clipcode(x1,y1), clipcode(x2,y2), false
+    while true do
+        if code1 == code2 == 0 then -- Both endpoints inside
+            accept = true
+            break
+        elseif code1 & code2 != 0 then -- Both endpoints outside
+            break
+        else -- Some segment inside rect
+            local x,y,code_out = 1.0, 1.0, 0
+            if code1 != 0 then code_out = code1 else code_out = code2 end
+            -- Find intersection point
+            if code_out & code_top then
+                x = x1 + (x2 - x1) * (-1 - y1) / (y2 - y1)
+                y = -1
+            elseif code_out & code_bottom then
+                x = x1 + (x2 - x1) * (1 - y1) / (y2 - y1)
+                y = 1
+            elseif code_out & code_left then
+                y = y1 + (y2 - y1) * (-1 - x1) / (x2 - x1)
+                x = -1
+            elseif code_out & code_right then
+                y = y1 + (y2 - y1) * (1 - x1) / (x2 - x1)
+                x = 1
+            end
+            if code_out == code1 then 
+                x1,y1,code1 = x,y,clipcode(x1,y1)
+            else 
+                x2,y2,code2 = x,y,clipcode(x2,y2)
+            end
+        end
+    end
+    if not accept then return nil end
+    return {x1,y1,x2,y2}
 end
 
 ---- TRI FILL ----
