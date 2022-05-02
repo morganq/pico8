@@ -1190,7 +1190,7 @@ speed = 0.02
 need_entgrid_generation = true
 fov = 90
 boss = false
-function _update60()
+function _update()
     if ((won and won_time > 320) or player.health <= 0) and btnp(5) then
         run()
     end
@@ -1362,14 +1362,13 @@ function draw_intro_ui()
 end
 
 function draw_game_ui()
-    local ss = "- "..score.." -"
-    print(ss, 64 - #ss * 2, 2, 12) 
-
     if player.health <= 0 then
         print(" ...deleted...\n\n❎ to try again", 36, 33, 0)
         print(" ...deleted...\n\n❎ to try again", 36, 32, 8)
         return
-    end    
+    end
+    local ss = "- "..score.." -"
+    print(ss, 64 - #ss * 2, 2, 12) 
 
     for i = 0, 2 do
         local si = 48

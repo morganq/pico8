@@ -150,3 +150,62 @@ local e = ent()
         --polys[i+1].pattern = 0b0110011001100110.1
         --polys[i+2].pattern = 0b0110011001100110.1
     end    
+
+--[[
+function make_lock(pos)
+    local e = ent()
+    e.health = 8
+    e.pos = pos
+    local count = 8
+    local rad = 4
+    local polys = {}
+    for i = 1, count do
+        local s1 = sin(i / count * 6.28 + 0.1) * rad
+        local c1 = cos(i / count * 6.28 + 0.1) * rad
+        local s2 = sin((i + 1) / count * 6.28 - 0.1) * rad
+        local c2 = cos((i + 1) / count * 6.28 - 0.1) * rad
+        local s3 = sin(i / count * 6.28 + 0.3) * rad
+        local c3 = cos(i / count * 6.28 + 0.3) * rad
+        local s4 = sin((i + 1) / count * 6.28 - 0.3) * rad
+        local c4 = cos((i + 1) / count * 6.28 - 0.3) * rad        
+        add(polys, poly({
+            vec(s1 * 0.8, c1 * 0.8, 0),
+            vec(s2 * 0.8, c2 * 0.8, 0),
+            vec(s2, c2, 0),
+            vec(s1, c1, 0),
+        }, true))
+        add(e.parts, part({poly({
+            vec(s3 * 0.2, c3 * 0.2, 0),
+            vec(s4 * 0.2, c4 * 0.2, 0),
+            vec(s4 * 0.65, c4 * 0.65, 0),
+            vec(s3 * 0.65, c3 * 0.65, 0),
+        },false)}))
+        e.parts[#e.parts].polys[1].pattern = 0b0
+    end
+    add(e.parts,part(polys))
+    add(ents, e)
+    e.compute_transform()
+    update_internal_transforms(e)
+    need_entgrid_generation = true
+end
+]]--
+
+function serialize_entity(e)
+    str = "[[" .. e.health .. "\n"
+    for k = 1, #e.parts do
+        local part = e.parts[k]
+        for i = 1, #part.polys do
+            local poly = part.polys[i]
+            str = str .. (poly.target and 1 or 0) .. ';'
+            for j = 1, #poly.points do
+                local pt = poly.points[j]
+                str = str .. pt[1] .. "," .. pt[2] .. "," .. pt[3]
+                if j < #poly.points then str ..= ";" end
+            end
+            if i < #part.polys then str ..= '/' end
+        end
+        if k < #e.parts then str = str .. "\n" end
+    end
+    str = str .. "]]"
+    return str
+end
