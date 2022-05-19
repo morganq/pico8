@@ -167,14 +167,14 @@ function trifill(x0,y0,x1,y1,x2,y2)
     if(y2<y0)x0,x2,y0,y2=x2,x0,y2,y0
     if(y2<y1)x1,x2,y1,y2=x2,x1,y2,y1
     if max(x2,max(x1,x0))-min(x2,min(x1,x0)) > y2-y0 then
-        col=x0+(x2-x0)/(y2-y0)*(y1-y0)
+        local col=x0+(x2-x0)/(y2-y0)*(y1-y0)
         p01_trapeze_h(x0,x0,x1,col,y0,y1)
         p01_trapeze_h(x1,col,x2,x2,y1,y2)
     else
         if(x1<x0)x0,x1,y0,y1=x1,x0,y1,y0
         if(x2<x0)x0,x2,y0,y2=x2,x0,y2,y0
         if(x2<x1)x1,x2,y1,y2=x2,x1,y2,y1
-        col=y0+(y2-y0)/(x2-x0)*(x1-x0)
+        local col=y0+(y2-y0)/(x2-x0)*(x1-x0)
         p01_trapeze_w(y0,y0,y1,col,x0,x1)
         p01_trapeze_w(y1,col,y2,y2,x1,x2)
     end
@@ -221,7 +221,7 @@ end
 local colors = {1,0x15,5,0x5d,13,0xd6,6,0x6f,15,0xf7,7,0x77}
 local patterns = {0b0, 0b1010010110100101, 0b0, 0b1010010110100101, 0b0, 0b1010010110100101, 0b0, 0b1010010110100101, 0b0, 0b1010010110100101, 0b0, 0b1010010110100101}
 
-function render(models, sprites, camera, w, h)
+function render(models, sprites, camera, w, h, floor, sky, shadows)
     w = w or 128
     h = h or 128
     local hw = w \ 2
@@ -341,6 +341,35 @@ function render(models, sprites, camera, w, h)
         end        
     end
 
+    local horizon_pt = {camera.fwd[1] * 50, 0, camera.fwd[3] * 50, 1}
+    local h2d = mv4(m, horizon_pt)
+    h2d[1] = h2d[1] / h2d[4]
+    h2d[2] = h2d[2] / h2d[4]
+    fillp(0b0)
+    rectfill(0, 0, w, h2d[2] * hh + hh, sky)
+    rectfill(0, h2d[2] * hh + hh, w, h, floor)
+    
+    local floor_ratio = 0.5 - camera.fwd[2]
+    color(0)
+    function do_shadows(models)
+        for mi = 1, #models do
+            local model = models[mi]
+            if model.shadow then
+                local s2d = mv4(m, {model.pos[1] - cpx, -cpy, model.pos[3] - cpz, 1})
+                local sz = s2d[3] / s2d[4]
+                if sz > -1 and sz < 1 then
+                    local sx = s2d[1] / s2d[4] * hw + hw
+                    local sy = s2d[2] / s2d[4] * hh + hh + (model.shadow_offset or 0)
+                    ss = clamp(35 / -s2d[4], 0, 8) * (model.shadow_size or 1)
+                    ovalfill(sx - ss, sy - ss * floor_ratio, sx + ss, sy + ss * floor_ratio)
+                end
+            end
+        end  
+    end
+    do_shadows(models)
+    do_shadows(sprites)
+    do_shadows(shadows)
+
     for bin = 1, nbins do
         local contents = zbins[bin]
         for j = 1, #contents do
@@ -356,6 +385,9 @@ function render(models, sprites, camera, w, h)
                 --color(colors[ind])
                 --fillp(patterns[ind])
                 set_color_lighting(r[7], dot)
+                if bin < 10 then
+                    fillp(0b1010010110100101.1)
+                end
                 trifill(p1[1],p1[2],p2[1],p2[2],p3[1],p3[2]) 
                 line(p1[1],p1[2],p2[1],p2[2]) -- Fill in the gap
             elseif rtype == 2 then
@@ -432,6 +464,7 @@ function model(points, tris)
         triangles = {},
         pos = {0,0,0,1},
         rotation = m_identity(),
+        shadow = false,
     }
     for p in all(points) do add(m.base_points, p) end    
     m.update_points = function()
@@ -459,6 +492,8 @@ function sprite(si, pos, w, h, rotator)
         pos = pos,
         fwd = {0,0,-1,1},
         rotator = rotator,
+        shadow = false,
+        shadow_offset = h * 3
     }
     return s
 end
