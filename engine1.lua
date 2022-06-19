@@ -1,3 +1,54 @@
+----- AA -----
+
+function shadepixpair(x,y,k,dx,dy)   
+    pset(x,   y,pget(x,y)*k)
+    pset(x+dx,y+dy,pget(x+dx,y+dy)*(1-k))
+end
+function shadepix(x,y,k)   
+    pset(x,   y,pget(x,y)*k)
+end
+
+-- algorithm credits: felice
+-- based off: http://jamesarich.weebly.com/uploads/1/4/0/3/14035069/480xprojectreport.pdf
+function aaline(x0,y0,x1,y1)
+    local w,h=abs(x1-x0),abs(y1-y0)
+ 
+ if h>w then
+     if y0>y1 then
+         x0,y0,x1,y1=x1,y1,x0,y0
+     end
+ 
+     local dx=x1-x0
+    
+     y0+=0.5
+     y1+=0.5
+    local k=h/(h*0.9609+w*0.3984)
+            
+     for y=flr(y0)+0.5-y0,flr(y1)+0.5-y0 do   
+         local x=x0+dx*y/h
+         local px=flr(x)
+         pset(px,  y0+y,pget(px,  y0+y)*k*(x-px  ))
+         pset(px+1,y0+y,pget(px+1,y0+y)*k*(px-x+1))
+     end
+ elseif w>0 then
+     if x0>x1 then
+         x0,y0,x1,y1=x1,y1,x0,y0
+     end
+ 
+     local dy=y1-y0
+     x0+=0.5
+     x1+=0.5
+    local k=w/(w*0.9609+h*0.3984)
+
+     for x=flr(x0)+0.5-x0,flr(x1)+0.5-x0 do   
+         local y=y0+dy*x/w
+         local py=flr(y)
+         pset(x0+x,py,  pget(x0+x,py  )*k*(y-py  ))
+         pset(x0+x,py+1,pget(x0+x,py+1)*k*(py-y+1))
+     end
+    end
+end
+
 
 ----- MATH -----
 
@@ -180,6 +231,7 @@ function trifill(x0,y0,x1,y1,x2,y2)
     end
 end
 
+
 ----- 3D -----
 
 COLOR_LIGHTING_SPRITE = 16
@@ -207,12 +259,15 @@ function set_color_lighting(color_num, light)
                 cxm += 1
             end
         end
-        color(0x00 + c1 * 16 + other_color)
+        local c = 0x00 + c1 * 16 + other_color
+        color(c)
         --add(debugs, other_color)
         fillp(PATTERNS[patc])
+        return c
     else
         color(c1)
         fillp(0b0)
+        return c1
     end
 end
 
@@ -226,8 +281,8 @@ function render(models, sprites, camera, w, h, floor, sky, shadows)
     h = h or 128
     local hw = w \ 2
     local hh = h \ 2
-    local nbins = 128 -- opt: inline
-    local zfar = 40
+    local nbins = 256 -- opt: inline
+    local zfar = 80
     local m = mm4(m_perspective(-1, -zfar, 3.2, 3.2 * h / w), m_look(camera.fwd, {0,1,0,1}))
     local tris = 0
     local drawn_tris = 0
@@ -267,15 +322,16 @@ function render(models, sprites, camera, w, h, floor, sky, shadows)
                         local y = (mpi[2] - cpy)
                         local z = (mpi[3] - cpz) 
                         local w2 = m13 * x + m14 * y + m15 * z
-                        local x2 = (m1 * x + m2 * y + m3 * z) / w2
-                        local y2 = (m5 * x + m6 * y + m7 * z) / w2
-                        local z2 = (m9 * x + m10 * y + m11 * z + m12) / w2
+                        local x2 = (m1 * x + m2 * y + m3 * z)
+                        local y2 = (m5 * x + m6 * y + m7 * z)
+                        local z2 = (m9 * x + m10 * y + m11 * z + m12)
                         --if x2 < -2 or x2 > 2 or y2 < -2 or y2 > 2 or z2 < -1 or z2 > 1 then
-                        if z2 < -1 or z2 > 1 then
+                        aw2 = abs(w2) * 4
+                        if abs(z2) > abs(w2) or abs(x2) > aw2 or abs(y2) > aw2 then
                             reject = true
                             break
                         end
-                        transformed_points[index] = {x2 * hw + hw,y2 * hh + hh,z2}
+                        transformed_points[index] = {x2 / w2 * hw + hw,y2 / w2 * hh + hh,z2 / w2}
                     end
                 end
                 if not reject then
@@ -302,10 +358,11 @@ function render(models, sprites, camera, w, h, floor, sky, shadows)
         local y = (s.pos[2] - cpy)
         local z = (s.pos[3] - cpz) 
         local w2 = m13 * x + m14 * y + m15 * z
-        local x2 = (m1 * x + m2 * y + m3 * z) / w2
-        local y2 = (m5 * x + m6 * y + m7 * z) / w2
-        local z2 = (m9 * x + m10 * y + m11 * z + m12) / w2     
-        if z2 > -1 and z2 < 1 then
+        local x2 = (m1 * x + m2 * y + m3 * z)
+        local y2 = (m5 * x + m6 * y + m7 * z)
+        local z2 = (m9 * x + m10 * y + m11 * z + m12) 
+        aw2 = abs(w2) * 2
+        if abs(z2) < abs(w2) and abs(x2) < aw2 and abs(y2) < aw2 then
             local sprindex = s.si
             local scalex = 1
             if s.rotator then
@@ -329,8 +386,8 @@ function render(models, sprites, camera, w, h, floor, sky, shadows)
             local bin = nbins - flr(distsq / (zfar * zfar) * nbins + 1)
             local size = 5 / sqrt(distsq)--min(2 / (sqrt(dist) / 10),1)
             local sx,sy = sprindex % 16 * 8, sprindex \ 16 * 8
-            local fx = x2 * hw + hw
-            local fy = y2 * hh + hh
+            local fx = x2 / w2 * hw + hw
+            local fy = y2 / w2 * hh + hh
             add(zbins[bin], {
                 2, 
                 sx, sy,
@@ -370,12 +427,14 @@ function render(models, sprites, camera, w, h, floor, sky, shadows)
     do_shadows(sprites)
     do_shadows(shadows)
 
-    for bin = 1, nbins do
+    for bin = 1, nbins do   
         local contents = zbins[bin]
         for j = 1, #contents do
             local r = contents[j]
             local rtype = r[1]
             if rtype == 1 then
+                --pal()
+                --fillp()
                 local norm = r[5]
                 local p1 = r[2]
                 local p2 = r[3]
@@ -384,25 +443,30 @@ function render(models, sprites, camera, w, h, floor, sky, shadows)
                 local ind = flr(max(dot,0) * 12 + 1)
                 --color(colors[ind])
                 --fillp(patterns[ind])
-                set_color_lighting(r[7], dot)
+                local c = set_color_lighting(r[7], dot)
                 if bin < 10 then
                     fillp(0b1010010110100101.1)
                 end
-                trifill(p1[1],p1[2],p2[1],p2[2],p3[1],p3[2]) 
+                --printh(p1[1], "test.txt")
+                trifill(p1[1],p1[2],p2[1],p2[2],p3[1],p3[2])
                 line(p1[1],p1[2],p2[1],p2[2]) -- Fill in the gap
+
+                -- Wireframe
+                --fillp()
+                --[[for i = 0, 15 do
+                    pal(i,i \ 2,0)
+                end
+                aaline(p1[1],p1[2],p2[1],p2[2])
+                aaline(p2[1],p2[2],p3[1],p3[2])
+                aaline(p1[1],p1[2],p3[1],p3[2])
+                ]]--
             elseif rtype == 2 then
                 sspr(r[2],r[3],r[4],r[5],r[6],r[7],r[8],r[9])
             end
-
-            -- Wireframe
-            --[[
-            color(7)
-            line(r[1][1],r[1][2],r[2][1],r[2][2])
-            line(r[2][1],r[2][2],r[3][1],r[3][2])
-            line(r[1][1],r[1][2],r[3][1],r[3][2])
-            ]]--
+            
         end
     end
+    pal()
     local draw_normals = false
     if draw_normals then
         for bin, contents in pairs(zbins) do

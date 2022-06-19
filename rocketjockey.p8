@@ -23,7 +23,7 @@ local model_rocket2 = [[1.25,0.75,0.25/1.25,0.75,-0.25/1.25,0.00,-0.75/1.25,-0.7
 local stadium_radius = 25
 local post_radius = 0.5
 
-local num_players = 2
+local num_players = 1
 local cameras = {}
 local sprites = {}
 local models = {}
@@ -90,7 +90,7 @@ function make_stadium()
         local cs = sin(ct) * stadium_radius
         local cc = cos(ct) * stadium_radius 
         add(points, {cs, 0, cc, 1})
-        add(points, {cs, 3, cc, 1})
+        add(points, {cs, 6, cc, 1})
         local ni = (i + 1) % step
         add(triangles, {i * 2 + 1, i * 2 + 2, ni * 2 + 2})
         add(triangles, {i * 2 + 1, ni * 2 + 2, ni * 2 + 1})
