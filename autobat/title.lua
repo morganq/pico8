@@ -3,6 +3,7 @@ end
 
 function title_update()
     if btnp(4) or btnp(5) then
+        start_match()
         set_scene("shop")
     end
 end
