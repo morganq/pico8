@@ -1,3 +1,23 @@
+function serialize_team(team)
+    local s = ""
+    for i = 1, #team do
+        local herospec = team[i]
+        s ..= herospec.name .. ':' .. serialize_gpt(herospec.pos)
+        if i != #team then s ..= "/" end
+    end
+    return s
+end
+
+function deserialize_team(s)
+    local team = {}
+    local s_heroes = split(s, "/")
+    for s_hero in all(s_heroes) do
+        local s_parts = split(s_hero, ":")
+        add(team, create_herospec(s_parts[1], deserialize_gpt(s_parts[2])))
+    end
+    return team
+end
+
 function create_herospec(name, pos)
     return {
         name = name,
@@ -23,7 +43,7 @@ function buy_hero(index)
         local random_spot = rnd(placement_coords)
         local occupied = false
         for hs in all(match.team) do
-            if hs.pos[1] == random_spot.pos[1] and hs.pos[2] == random_spot.pos[2] then
+            if hs.pos[1] == random_spot[1] and hs.pos[2] == random_spot[2] then
                 occupied = true
                 break
             end
@@ -33,7 +53,9 @@ function buy_hero(index)
         end
     end
     local spec = create_herospec(hero, open_spot)
-    add(match.team, spec) 
+    add(match.team, spec)
+    local hero = create_hero(hero, open_spot, 1)
+    add(arena.heroes, hero)
     match.shop[index] = nil
 end
 
@@ -42,6 +64,7 @@ function start_shop_turn()
     match.turn = "shop"
     match.shop_time_left = 30
     create_shop()
+    create_arena({match.team, {}})
 end
 
 function start_sim_turn()
@@ -54,6 +77,10 @@ function start_sim_turn()
     match.shop = {}
     match.turn = "sim"
     match.sim_time_left = 30
+
+    -- Load an enemy
+    local team2 = deserialize_team(sample_team)
+    create_arena({match.team, team2})
 end
 
 function start_match()
@@ -77,4 +104,9 @@ function start_match()
     end
     srand(match.seed)
     start_shop_turn()
+    buy_hero(1)
+    buy_hero(2)
+    buy_hero(3)
+    debug(serialize_team(match.team))
+    --debug(serialize_team(deserialize_team(serialize_team(match.team))))
 end

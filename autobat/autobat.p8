@@ -5,11 +5,13 @@ __lua__
 -- by morganquirk
 
 #include src.lua
+#include util.lua
 #include title.lua
 #include shop.lua
 #include sim.lua
 #include match.lua
 #include arena.lua
+#include hero.lua
 
 function debug_str(o)
     if type(o) == 'table' then
