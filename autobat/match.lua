@@ -2,7 +2,7 @@ function serialize_team(team)
     local s = ""
     for i = 1, #team do
         local herospec = team[i]
-        s ..= herospec.name .. ':' .. serialize_gpt(herospec.pos)
+        s ..= herospec.name .. herospec.pips .. ':' .. serialize_gpt(herospec.pos)
         if i != #team then s ..= "/" end
     end
     return s
@@ -13,50 +13,21 @@ function deserialize_team(s)
     local s_heroes = split(s, "/")
     for s_hero in all(s_heroes) do
         local s_parts = split(s_hero, ":")
-        add(team, create_herospec(s_parts[1], deserialize_gpt(s_parts[2])))
+        add(team, create_herospec(
+            sub(s_parts[1],1,1),
+            deserialize_gpt(s_parts[2]),
+            tonum(sub(s_parts[1],2,2)))
+        )
     end
     return team
 end
 
-function create_herospec(name, pos)
+function create_herospec(name, pos, pips)
     return {
         name = name,
+        pips = pips or 1,
         pos = pos
     }
-end
-
-function create_shop()
-    -- Pull 5 random heroes from the deck
-    for i = 1,5 do
-        local ind = rnd(#match.shop_deck) + 1
-        local hero = match.shop_deck[ind\1]
-        add(match.shop, hero)
-        deli(match.shop_deck, ind)
-    end
-end
-
-function buy_hero(index)
-    local hero = match.shop[index]
-    -- todo: merge etc.
-    local open_spot = nil
-    while open_spot == nil do
-        local random_spot = rnd(placement_coords)
-        local occupied = false
-        for hs in all(match.team) do
-            if hs.pos[1] == random_spot[1] and hs.pos[2] == random_spot[2] then
-                occupied = true
-                break
-            end
-        end
-        if not occupied then
-            open_spot = random_spot
-        end
-    end
-    local spec = create_herospec(hero, open_spot)
-    add(match.team, spec)
-    local hero = create_hero(hero, open_spot, 1)
-    add(arena.heroes, hero)
-    match.shop[index] = nil
 end
 
 function start_shop_turn()
@@ -64,7 +35,7 @@ function start_shop_turn()
     match.turn = "shop"
     match.shop_time_left = 30
     create_shop()
-    create_arena({match.team, {}})
+    create_arena(match.team)
 end
 
 function start_sim_turn()
@@ -80,7 +51,7 @@ function start_sim_turn()
 
     -- Load an enemy
     local team2 = deserialize_team(sample_team)
-    create_arena({match.team, team2})
+    create_arena(match.team, team2)
 end
 
 function start_match()
@@ -90,13 +61,18 @@ function start_match()
         seed = rnd(32767),
         team = {},
 
+        money = 10,
+        wins = 0,
+        losses = 0,
+
         shop_deck = {},
         shop = {},
         shop_time_left = 0,
 
         sim_time_left = 0,
     }
-    for i = 97,123 do
+    for i = 97,122 do
+    --for i = 97,98 do
         local hn = chr(i)
         for j = 0, 9 do
             add(match.shop_deck, hn)
@@ -104,9 +80,9 @@ function start_match()
     end
     srand(match.seed)
     start_shop_turn()
-    buy_hero(1)
+    --[[buy_hero(1)
     buy_hero(2)
-    buy_hero(3)
+    buy_hero(3)]]
     debug(serialize_team(match.team))
     --debug(serialize_team(deserialize_team(serialize_team(match.team))))
 end
