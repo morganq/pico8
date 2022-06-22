@@ -134,6 +134,9 @@ function create_hero(name, pips, gpos, team)
         time_out_of_range = -30, -- start with negative as heroes run across the map
         t = 0,
         got_hit_timer = 0,
+        is_walking = false,
+        recoil = {0,0},
+        just_ulted_timer = 0,
 
         draw = function(self)
             local x, y = tpx(self.x), tpy(self.y)
@@ -143,7 +146,22 @@ function create_hero(name, pips, gpos, team)
                 palt()
                 return
             end
-            spr(64 + self.hero_index, x - 4, y - 6)
+            if self.just_ulted_timer > 0 then
+                self.just_ulted_timer -= 1
+                for i = 0, 2 do
+                    circfill(x, y - 4 + i * 2, 5, 10)
+                end
+            end
+            local spri = 64 + self.hero_index
+            if self.is_walking then
+                local sx = spri % 16 * 8
+                local sy = spri \ 16 * 8
+                local off = sin(self.t / 12)
+                sspr(sx, sy, 8, 5, x - 4 + off, y - 6)
+                sspr(sx, sy + 5, 8, 4, x - 4, y - 1)                
+            else
+                spr(spri, tpx(self.x + self.recoil[1]) - 4, tpy(self.y + self.recoil[2]) - 6)
+            end
             --[[
             ovalfill(x - 4, y - 4, x + 4, y + 4, 0)
             ovalfill(x - 4, y - 5, x + 4, y + 3, team_colors[self.apparent_team])
@@ -268,6 +286,8 @@ function create_hero(name, pips, gpos, team)
             -- Mana
             self.mana = min(self.mana + 1, self.max_mana)
 
+            self.recoil = {self.recoil[1] * 0.8, self.recoil[2] * 0.8}
+
             -- Stun
             if self.stun > 0 then
                 self.stun -= 1
@@ -288,6 +308,7 @@ function create_hero(name, pips, gpos, team)
                 local dx, dy = htowards(self, self.target)
                 self.x += dx * self.speed
                 self.y += dy * self.speed
+                self.is_walking = true
                 if self.targeting == "near" then
                     self.time_out_of_range += 1
                 end
@@ -295,6 +316,7 @@ function create_hero(name, pips, gpos, team)
                     self:find_target()
                 end
             else
+                self.is_walking = false
                 self.time_out_of_range = 0
                 if self.reload <= 0 then
                     self:attack()
@@ -318,8 +340,11 @@ function create_hero(name, pips, gpos, team)
             effect:startfn(self)
         end,
 
-        attack = function(self)
-            make_attack_projectile(self, self.target, sqrt(hd(self, self.target)) / self.projectile_speed * 30, 10, self.hero_index)
+        attack = function(self)            
+            local d = sqrt(hd(self, self.target))
+            local dx, dy = (self.target.x - self.x) / d, (self.target.y - self.y) / d
+            self.recoil = {-dx * 2, -dy * 2}
+            make_attack_projectile(self, self.target, d / self.projectile_speed * 30, 10, self.hero_index)
         end,
 
         take_damage = function(self, damage, truedamage)
@@ -340,6 +365,7 @@ function create_hero(name, pips, gpos, team)
         end,
 
         use_ult = function(self)
+            self.just_ulted_timer = 7
             heroults[self.hero_index](self)
             --debug(self.name.." ULT!")
         end
