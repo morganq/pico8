@@ -1,6 +1,14 @@
 level_colors = {
-    15, 11, 14, 9
+    6, 9, 14, 11
 }
+
+function create_herospec(name, pos, pips)
+    return {
+        name = name,
+        pips = pips or 1,
+        pos = pos
+    }
+end
 
 function make_effect(startfn, endfn, time)
     return {
@@ -96,10 +104,11 @@ function allies(me, cmp)
     return h 
 end
 
-function create_hero(name, pips, gpos, team)
+function create_hero(name, pips, gpos, team, index_on_team)
     local ppos = g2p(gpos[1], gpos[2])
     local h = {
         initial = sub(name,1,1),
+        index = index_on_team,
         name = name,
         pips = pips,
         team = team,
@@ -108,6 +117,7 @@ function create_hero(name, pips, gpos, team)
         x = ppos[1] + 5,
         y = ppos[2] + 5,
         alive = true,
+        dead = false,
         
         -- stats
         max_health = 100,
@@ -121,6 +131,7 @@ function create_hero(name, pips, gpos, team)
         max_mana = 150,
         mana = 0,
         ult_value = 1,
+        spawn_time = 0,
 
         -- effects
         effects = {},
@@ -137,19 +148,28 @@ function create_hero(name, pips, gpos, team)
         is_walking = false,
         recoil = {0,0},
         just_ulted_timer = 0,
+        stat_damage = 0,
+        stat_heal = 0,
 
         draw = function(self)
             local x, y = tpx(self.x), tpy(self.y)
             if not self.alive then
-                palt(0b0000000000000001)
-                spr(0, x - 4, y - 4)
-                palt()
+                if self.dead then
+                    palt(0b0000000000000001)
+                    spr(0, x - 4, y - 4)
+                    palt()                        
+                else
+                    --print(self.spawn_time \ 30 + 1, x - 2, y - 3, 0)
+                    pal({[7]=0})
+                    spr(mid(self.spawn_time / 15, 0, 8) + 224, x - 4, y - 4)
+                    pal()
+                end
                 return
             end
             if self.just_ulted_timer > 0 then
                 self.just_ulted_timer -= 1
                 for i = 0, 2 do
-                    circfill(x, y - 4 + i * 2, 5, 10)
+                    circfill(x, y - 4 + i * 2, 5, 12)
                 end
             end
             local spri = 64 + self.hero_index
@@ -187,39 +207,43 @@ function create_hero(name, pips, gpos, team)
                 end
             end
             local sei = 0
-            if self.regen != 0 then
-                spr(193, x + 4, y - 4 + sei)
-                sei += 4
+            if self.t \ 4 % 2 == 0 then
+                if self.regen != 0 then
+                    spr(193, x - 4 + sei, y - 7)
+                    sei += 3
+                end
+                if self.dot != 0 then
+                    spr(192, x - 4 + sei, y - 7)
+                    sei += 3
+                end
+                if self.stun > 0 then
+                    spr(194, x - 4 + sei, y - 7)
+                    sei += 3
+                end         
+                --[[if #self.effects > 0 then
+                    print(#self.effects, x + 4, y - 4 + sei, 0)
+                end]]
             end
-            if self.dot != 0 then
-                spr(192, x + 4, y - 4 + sei)
-                sei += 4
-            end
-            if self.stun > 0 then
-                spr(194, x + 4, y - 4 + sei)
-                sei += 4
-            end         
-            --[[if #self.effects > 0 then
-                print(#self.effects, x + 4, y - 4 + sei, 0)
-            end]]
         end,
 
         draw_ui = function(self)
             local x, y = tpx(self.x), tpy(self.y)
-            if match.turn == 'sim' then
-                
-                local hpbmw = 8
+            level, filled, total = self:get_level_filled_total_pips()
+            if true or match.turn == 'sim' then
+                local hpbmw = 6 + level * 1
+                local w2 = hpbmw/2
                 local hpbw = hpbmw * mid(self.health / self.max_health, 0, 1)
-                line(x - 4, y + 5, x + 4, y + 5, 2)
-                line(x - 4, y + 5, x - 4 + hpbw, y + 5, 8)  
+                line(x - w2, y + 3, x + w2 - 1, y + 3, 2)
+                line(x - w2, y + 3, x - w2 - 1 + hpbw, y + 3, 8)  
                 local mbw = hpbmw * mid(self.mana / self.max_mana, 0, 1)
-                line(x - 4, y + 6, x + 4, y + 6, 1)
+                line(x - w2, y + 4, x + w2 - 1, y + 4, 1)
                 if mbw > 0.5 then
-                    line(x - 4, y + 6, x - 4 + mbw, y + 6, 12)    
+                    line(x - w2, y + 4, x - w2 - 1 + mbw, y + 4, 12)    
                 end
-
-            else
-                level, filled, total = self:get_level_filled_total_pips()
+                line(x - w2 - 1, y + 3, x - w2 - 1, y + 4, level_colors[level])
+                line(x + w2, y + 3, x + w2, y + 4, level_colors[level])
+            end
+            if match.turn == 'shop' then
                 if level > 0 then
                     local c = level_colors[level]
                     for i = 1, total do
@@ -259,10 +283,26 @@ function create_hero(name, pips, gpos, team)
         sim_init = function(self)
             self:find_target()
         end,
+
+        spawn = function(self)
+            self.alive = true
+            self:find_target()
+        end,
+
         sim_update = function(self)
             self.t += 1
             -- Dead?
-            if not self.alive then return end
+            if self.dead then return end
+            if not self.alive then
+                if self.spawn_time > 0 then
+                    self.spawn_time -= 1
+                    if self.spawn_time == 0 then
+                        self.spawn_time -= 1
+                        self:spawn()
+                    end
+                end
+                return
+            end
 
             -- Effects
             for effect in all(self.effects) do
@@ -276,17 +316,24 @@ function create_hero(name, pips, gpos, team)
             -- Regen and DOT
             if self.t % 15 == 0 then 
                 if self.regen != 0 then
-                    self:heal(self.regen / 2)
+                    self:heal(self.regen / 2, nil)
                 end
                 if self.dot != 0 then
-                    self:take_damage(self.dot / 2, true)
+                    self:take_damage(self.dot / 2, nil, true)
                 end
             end
 
             -- Mana
             self.mana = min(self.mana + 1, self.max_mana)
 
+            -- Recoil from attacks
             self.recoil = {self.recoil[1] * 0.8, self.recoil[2] * 0.8}
+
+            -- Attack speed cap
+            self.attack_speed = min(self.attack_speed, 4)
+
+            self.x = mid(self.x, grid_offset[1], grid_offset[1] + grid_size * dimensions[1])
+            self.y = mid(self.y, grid_offset[2], grid_offset[2] + grid_size * dimensions[2])
 
             -- Stun
             if self.stun > 0 then
@@ -295,7 +342,7 @@ function create_hero(name, pips, gpos, team)
             end
 
             -- Targeting
-            if self.target and not self.target.alive then
+            if not self.target or (self.target and not self.target.alive) then
                 self:find_target()
             end
 
@@ -347,20 +394,27 @@ function create_hero(name, pips, gpos, team)
             make_attack_projectile(self, self.target, d / self.projectile_speed * 30, 10, self.hero_index)
         end,
 
-        take_damage = function(self, damage, truedamage)
+        take_damage = function(self, damage, from, truedamage)
             if not truedamage then
                 damage = max(damage - self.armor, 0)
+            end
+            if from then
+                from.stat_damage += damage
             end
             if damage > 0 then
                 self.got_hit_timer = 4
                 self.health -= damage
                 if self.health <= 0 then
                     self.alive = false
+                    self.dead = true
                 end
             end
         end,
 
-        heal = function(self, amt)
+        heal = function(self, amt, from)
+            if from then
+                from.stat_heal += amt
+            end
             self.health = min(self.health + amt, self.max_health)
         end,
 
@@ -377,10 +431,10 @@ function create_hero(name, pips, gpos, team)
     h.range = h.range * grid_size * 1.1
 
     local level = h:get_level_filled_total_pips()
-    h.max_health = h.max_health * (1 + (level - 1) * 0.75)
+    h.max_health = h.max_health * (1 + (level - 1) * 0.75) * 0.66
     h.health = h.max_health
     h.damage = h.damage * (1 + (level - 1) * 0.5)
-    h.ult_value = get_ult_number(h.initial) * (1 + (level - 1) * 0.66)
+    h.ult_value = get_ult_number(h.initial, level)
 
     local base_stat_names = {"max_health", "max_mana", "damage", "attack_speed", "speed"}
     for sn in all(base_stat_names) do

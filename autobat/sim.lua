@@ -35,7 +35,7 @@ function make_attack_projectile(a, b, time, damage, spri)
             self.y = self.e1.y * (1 - t) + targety * t
             if self.t > self.time then
                 if self.e2.alive then
-                    self.e2:take_damage(self.damage)
+                    self.e2:take_damage(self.damage, self.e1)
                 end
                 del(arena.ents, self)
             end
@@ -81,7 +81,7 @@ function make_projectile(x, y, dx, dy, color, on_hit, rad)
             self.x += self.dx * 1.25
             self.y += self.dy * 1.25
             for h in all(arena.heroes) do
-                if count(self.hit, h) == 0 then
+                if count(self.hit, h) == 0 and h.alive then
                     local dsq = (self.x - h.x) ^ 2 + (self.y - h.y) ^ 2
                     if dsq < (self.rad + 4) ^ 2 then
                         add(self.hit, h)
@@ -121,49 +121,91 @@ function collide_ents()
     end
 end
 
+function draw_stat(h, y, total_damage, total_heal)
+    spr(64 + h.hero_index, 1, y)
+    mw = 13
+    if h.stat_damage > 0 then
+        rectfill(10, y + 2, 10 + h.stat_damage / total_damage * mw, y + 3, 8)
+    end
+    if h.stat_heal > 0 then
+        rectfill(10, y + 5, 10 + h.stat_heal / total_heal * mw, y + 6, 11)
+    end
+end
+
 function sim_start()
     for hero in all(arena.heroes) do
-        hero:sim_init()
+        --hero:sim_init()
+        if hero.index > 1 then
+            hero.alive = false
+            hero.spawn_time = hero.index * 60 - 29
+        end
     end
     sim_done = false
     sim_done_timer = 0    
+    pre_sim_time = 15
 end
 
-
-function sim_update()
-    if sim_done then
-        sim_done_timer -= 1
-        if sim_done_timer <= 0 then
-            start_shop_turn()
-            set_scene("shop")            
-        end
-        return 
-    end
+function sim_tick()
     match.sim_time_left -= 1/30
     for hero in all(arena.heroes) do
-        if hero.alive then
-            hero:sim_update()
-        end
+        hero:sim_update()
     end
     for ent in all(arena.ents) do
         ent:update()
     end    
-    collide_ents()
+    collide_ents()  
+end
 
-    if #heroes_by_team(arena.my_team) == 0 then
+function sim_update()
+    if pre_sim_time > 0 then
+        pre_sim_time -= 1
+        return
+    end
+
+    if sim_done then
+        sim_done_timer -= 1
+        if sim_done_timer <= 0 then
+            if match.wins >= 9 then
+                global_message = "you win! :D"
+                set_scene("message")
+            elseif match.losses >= 5 then
+                global_message = "you lose! :("
+                set_scene("message")
+            else
+                start_shop_turn()
+                set_scene("shop")
+            end
+        end
+        return 
+    end    
+    sim_tick()
+    if match.sim_time_left < 0 then
+        for i = 1, 4 do sim_tick() end
+    end
+
+    alive_mine = 0
+    alive_enemy = 0
+    for hero in all(arena.heroes) do
+        if not hero.dead then
+            if hero.team == arena.my_team then alive_mine += 1 else alive_enemy += 1 end
+        end
+    end
+    if alive_mine == 0 then
         match.losses += 1
         sim_done = 'defeat'
         sim_done_timer = 60
     end
-    if #heroes_by_team(3 - arena.my_team) == 0 then
+    if alive_enemy == 0 then
         match.wins += 1
         sim_done = 'victory'
         sim_done_timer = 60
-    end
+    end      
 end
 
 function sim_draw()
+    camera(0, cos((15 - pre_sim_time) / 30) * 10 - 10)
     draw_arena()
+    camera()
     draw_game_ui()
     local t = mid(sim_done_timer - 30, 0, 999)
     if sim_done == 'victory' then
@@ -173,6 +215,32 @@ function sim_draw()
         print("defeat", 52, 44 - t, 0)
         print("defeat", 52, 43 - t, 8)
     end
+
+    local total_damage = 0
+    local total_heal = 0
+    local max_damage = 200
+    local max_heal = 100
+    local y = 4
+    local stats = {}
+    for h in all(arena.heroes) do
+        if h.team == arena.my_team and (h.stat_damage > 0 or h.stat_heal > 0) then
+            total_damage += h.stat_damage
+            max_damage = max(max_damage, h.stat_damage)
+            total_heal += h.stat_heal
+            max_heal = max(max_heal, h.stat_heal)
+            add(stats, {h, h.stat_damage})
+        end
+    end
+
+    sort(stats, function(a,b) return a[2] < b[2] end)
+
+    for stat in all(stats) do
+        local h = stat[1]
+        if h.team == arena.my_team then
+            draw_stat(h, y, max_damage, max_heal)
+            y += 10            
+        end
+    end    
 end
 
 function sim_finish()

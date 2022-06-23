@@ -2,7 +2,7 @@ sample_team = "u1:33/o1:20/z1:31"
 
 dimensions = {6,6}
 grid_size = 11
-grid_offset = {29, 8}
+grid_offset = {32, 8}
 team_colors = {12, 10}
 
 placement_coords = {}
@@ -58,8 +58,10 @@ function create_arena(my_team, enemy_team)
             arena.my_team = 2
         end    
     end
+    arena.teams = teams
     for i = 1, #teams do
         local team = teams[i]
+        local j = 1
         for herospec in all(team) do
             local pos = herospec.pos
             if i == 2 then
@@ -69,8 +71,10 @@ function create_arena(my_team, enemy_team)
                 herospec.name,
                 herospec.pips,
                 pos,
-                i
+                i,
+                j
             ))
+            j += 1
         end
     end
 end
@@ -83,19 +87,20 @@ function draw_arena()
     for hero in all(arena.heroes) do
         add(ent_rows[hero.y\1], hero)
     end
-    rect(grid_offset[1] - 2, grid_offset[2] - 2, grid_offset[1] + grid_size * dimensions[1], grid_offset[2] + grid_size * dimensions[2], 6)
+    rect(grid_offset[1] - 2, grid_offset[2] - 2, grid_offset[1] + grid_size * dimensions[1], grid_offset[2] + grid_size * dimensions[2], 5)
     rectfill(grid_offset[1] - 1, grid_offset[2] - 1, grid_offset[1] + grid_size * dimensions[1] - 1, grid_offset[2] + grid_size * dimensions[2] - 1, 7)
     for row = 0, dimensions[2] - 1 do
         for col = 0, dimensions[1] - 1 do
             local ppos = g2p(row, col)
-            local color = 6
-            if (row + col) % 2 == 1 then color = 13 end
-            rectfill(ppos[1], ppos[2], ppos[1] + grid_size - 2, ppos[2] + grid_size - 2, color)
+            local c1, c2 = 7,6
+            if (row + col) % 2 == 1 then c1,c2 = 6,13 end
+            rectfill(ppos[1] - 0, ppos[2] - 0, ppos[1] + grid_size - 2, ppos[2] + grid_size - 2, c1)
+            --rectfill(ppos[1] + 3, ppos[2] + 3, ppos[1] + grid_size - 5, ppos[2] + grid_size - 5, c2)
         end
     end
     for hero in all(arena.heroes) do
         local x, y = tpx(hero.x), tpy(hero.y)
-        line(x-3,y + 2, x+2,y+2,0)
+        --line(x-3,y + 2, x+2,y+2,0)
         --ovalfill(x - 4, y + 0, x + 3, y + 4, 0)
     end
     for i = 0, 127 do

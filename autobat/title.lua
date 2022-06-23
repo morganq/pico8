@@ -9,7 +9,15 @@ function title_update()
 end
 
 function title_draw()
-    cls()
+    cls(7)
+    print("unnamed autobattler", 26, 10, 0)
+    lines = split("each hero costs 3 gold\nreroll costs 1 gold\nduplicates merge\nz to finish shopping\nshop freezes between rounds\nheroes spawn in buy order", "\n")
+    i = 44
+    for l in all(lines) do
+        print('-'..l, 9, i, 5)
+        i += 7
+    end
+    print("z to start", 42, 110, 0)
 end
 
 function title_finish()

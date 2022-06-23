@@ -1,3 +1,9 @@
+round_heroes = {
+    2, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9
+}
+max_wins = 9
+max_losses = 5
+
 function serialize_team(team)
     local s = ""
     for i = 1, #team do
@@ -22,35 +28,31 @@ function deserialize_team(s)
     return team
 end
 
-function create_herospec(name, pos, pips)
-    return {
-        name = name,
-        pips = pips or 1,
-        pos = pos
-    }
-end
-
 function start_shop_turn()
+    --match.max_heroes = min(match.max_heroes + 1, 9)
     match.round += 1
+    if round_heroes[match.round] then
+        match.max_heroes = round_heroes[match.round]
+    end
     match.turn = "shop"
     match.shop_time_left = 30
-    create_shop()
+    match.money = 8
     create_arena(match.team)
 end
 
 function start_sim_turn()
     -- Put unbought heroes back into the deck
-    for i = 1,5 do
+    --[[for i = 1,5 do
         if match.shop[i] != nil then
             add(match.shop_deck, match.shop[i])
         end
-    end
-    match.shop = {}
+    end]]--
+    --match.shop = {}
     match.turn = "sim"
-    match.sim_time_left = 30
+    match.sim_time_left = 45
 
     -- Load an enemy
-    local team2 = deserialize_team(sample_team)
+    local team2 = make_ai_team(match.round) --deserialize_team(sample_team)
     create_arena(match.team, team2)
 end
 
@@ -61,7 +63,8 @@ function start_match()
         seed = rnd(32767),
         team = {},
 
-        money = 10,
+        money = 0,
+        max_heroes = 1,
         wins = 0,
         losses = 0,
 
@@ -79,6 +82,7 @@ function start_match()
         end
     end
     srand(match.seed)
+    create_shop()
     start_shop_turn()
     --[[buy_hero(1)
     buy_hero(2)
