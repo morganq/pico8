@@ -2,32 +2,32 @@ sample_team = "u1:33/o1:20/z1:31"
 
 dimensions = {6,6}
 grid_size = 11
-grid_offset = {32, 8}
+grid_offset = {32, 9}
 team_colors = {12, 10}
 
 placement_coords = {}
-for x = 0, dimensions[1]-1 do
-    for y = 0, dimensions[2] \ 2 - 1 do
-        add(placement_coords, {x,y + dimensions[2] \ 2})
+for x = 0, 5 do
+    for y = 0, 2 do
+        add(placement_coords, {x,y + 3})
     end
 end
 
 function tpx(x)
     if arena.my_team == 1 then return x end
-    return 127 - x
+    return 129 - x
 end
 function tpy(y)
     if arena.my_team == 1 then return y end
-    return grid_size * dimensions[2] - (y - grid_offset[2]) + grid_offset[2]
+    return grid_size * 6 - (y - grid_offset[2]) + grid_offset[2]
 end
 
 function serialize_gpt(pt)
-    return tostr(pt[1] + pt[2] * dimensions[1])
+    return tostr(pt[1] + pt[2] * 6)
 end
 
 function deserialize_gpt(s)
     local n = tonum(s)
-    return {s % dimensions[1], s \ dimensions[1]}
+    return {s % 6, s \ 6}
 end
 
 function g2p(gx, gy)
@@ -65,7 +65,7 @@ function create_arena(my_team, enemy_team)
         for herospec in all(team) do
             local pos = herospec.pos
             if i == 2 then
-                pos = {dimensions[1] - 1 - pos[1], dimensions[2] - 1 - pos[2]}
+                pos = {5 - pos[1], 5 - pos[2]}
             end
             add(arena.heroes, create_hero(
                 herospec.name,
@@ -87,21 +87,15 @@ function draw_arena()
     for hero in all(arena.heroes) do
         add(ent_rows[hero.y\1], hero)
     end
-    rect(grid_offset[1] - 2, grid_offset[2] - 2, grid_offset[1] + grid_size * dimensions[1], grid_offset[2] + grid_size * dimensions[2], 5)
-    rectfill(grid_offset[1] - 1, grid_offset[2] - 1, grid_offset[1] + grid_size * dimensions[1] - 1, grid_offset[2] + grid_size * dimensions[2] - 1, 7)
-    for row = 0, dimensions[2] - 1 do
-        for col = 0, dimensions[1] - 1 do
+    rect(grid_offset[1] - 2, grid_offset[2] - 2, grid_offset[1] + grid_size * 6, grid_offset[2] + grid_size * 6, 5)
+    rectfill(grid_offset[1] - 1, grid_offset[2] - 1, grid_offset[1] + grid_size * 6 - 1, grid_offset[2] + grid_size * 6 - 1, 7)
+    for row = 0, 5 do
+        for col = 0, 5 do
             local ppos = g2p(row, col)
-            local c1, c2 = 7,6
-            if (row + col) % 2 == 1 then c1,c2 = 6,13 end
+            local c1 = 7
+            if (row + col) % 2 == 1 then c1,c2 = 6 end
             rectfill(ppos[1] - 0, ppos[2] - 0, ppos[1] + grid_size - 2, ppos[2] + grid_size - 2, c1)
-            --rectfill(ppos[1] + 3, ppos[2] + 3, ppos[1] + grid_size - 5, ppos[2] + grid_size - 5, c2)
         end
-    end
-    for hero in all(arena.heroes) do
-        local x, y = tpx(hero.x), tpy(hero.y)
-        --line(x-3,y + 2, x+2,y+2,0)
-        --ovalfill(x - 4, y + 0, x + 3, y + 4, 0)
     end
     for i = 0, 127 do
         for ent in all(ent_rows[i]) do
@@ -119,11 +113,4 @@ function draw_arena()
             hero:draw_ui()
         end
     end    
-
-    -- debug
-    for hero in all(arena.heroes) do
-        if hero.target then
-            --line(hero.x, hero.y, hero.target.x, hero.target.y, 8)
-        end
-    end
 end

@@ -19,7 +19,7 @@ function make_attack_projectile(a, b, time, damage, spri)
             if arena.my_team == 2 then
                 flipx, flipy = not flipx, not flipy
             end
-            spr(self.spri, tpx(self.x) - 3, tpy(self.y) - 3, 1, 1, flipx, flipy)
+            spr(self.spri, tpx(self.x) - 3, tpy(self.y) - 6, 1, 1, flipx, flipy)
             palt()
         end,
         update = function(self)
@@ -36,6 +36,7 @@ function make_attack_projectile(a, b, time, damage, spri)
             if self.t > self.time then
                 if self.e2.alive then
                     self.e2:take_damage(self.damage, self.e1)
+                    sfx(18 - self.e2.apparent_team)
                 end
                 del(arena.ents, self)
             end
@@ -44,16 +45,20 @@ function make_attack_projectile(a, b, time, damage, spri)
     add(arena.ents,e)
 end
 
-function make_circle_particle(x, y, rad, color)
+function make_circle_particle(x, y, rad, color, from)
     local e = {
         x = x,
         y = y,
         rad = rad,
         color = color,
         time = 10,
+        from = from,
         draw = function(self)
-            local x, y = tpx(self.x), tpy(self.y)
+            local x, y = tpx(self.x), tpy(self.y)-2
             circ(x,y, self.rad, self.color) 
+            if self.from then
+                line(tpx(self.from.x), tpy(self.from.y)-2, x, y-2, self.color)
+            end
         end,
         update = function(self)
             self.time -= 1
@@ -128,7 +133,7 @@ function draw_stat(h, y, total_damage, total_heal)
         rectfill(10, y + 2, 10 + h.stat_damage / total_damage * mw, y + 3, 8)
     end
     if h.stat_heal > 0 then
-        rectfill(10, y + 5, 10 + h.stat_heal / total_heal * mw, y + 6, 11)
+        rectfill(10, y + 4, 10 + h.stat_heal / total_heal * mw, y + 5, 11)
     end
 end
 
@@ -146,7 +151,6 @@ function sim_start()
 end
 
 function sim_tick()
-    match.sim_time_left -= 1/30
     for hero in all(arena.heroes) do
         hero:sim_update()
     end
@@ -162,13 +166,15 @@ function sim_update()
         return
     end
 
+    match.sim_time_left -= 1/30
+
     if sim_done then
         sim_done_timer -= 1
         if sim_done_timer <= 0 then
-            if match.wins >= 9 then
+            if match.wins >= match.wins_needed then
                 global_message = "you win! :D"
                 set_scene("message")
-            elseif match.losses >= 5 then
+            elseif match.losses >= match.losses_needed then
                 global_message = "you lose! :("
                 set_scene("message")
             else
@@ -181,6 +187,9 @@ function sim_update()
     sim_tick()
     if match.sim_time_left < 0 then
         for i = 1, 4 do sim_tick() end
+        for hero in all(arena.heroes) do
+            hero.dot += 1/5
+        end
     end
 
     alive_mine = 0
@@ -216,17 +225,13 @@ function sim_draw()
         print("defeat", 52, 43 - t, 8)
     end
 
-    local total_damage = 0
-    local total_heal = 0
     local max_damage = 200
     local max_heal = 100
     local y = 4
     local stats = {}
     for h in all(arena.heroes) do
         if h.team == arena.my_team and (h.stat_damage > 0 or h.stat_heal > 0) then
-            total_damage += h.stat_damage
             max_damage = max(max_damage, h.stat_damage)
-            total_heal += h.stat_heal
             max_heal = max(max_heal, h.stat_heal)
             add(stats, {h, h.stat_damage})
         end
@@ -243,12 +248,8 @@ function sim_draw()
     end    
 end
 
-function sim_finish()
-end
-
 scenes.sim = {
     start = sim_start,
     update = sim_update,
     draw = sim_draw,
-    finish = sim_finish
 }
