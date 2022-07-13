@@ -1,4 +1,4 @@
-herostats_fields = split("name,shortname,max_health,attack_speed,range,speed,damage,projectile_speed,targeting,max_mana,mana,ult,ult_base_num,ult_range")
+herostats_fields = split"name,shortname,max_health,attack_speed,range,speed,damage,projectile_speed,targeting,max_mana,mana,ult,ult_base_num,ult_range"
 herostats = {}
 for s_line in all(split(herostats_str, "\n")) do
     local letter = sub(s_line, 0, 1)
@@ -16,7 +16,7 @@ function set_scene(s)
 end
 
 function _init()
-    set_scene("title")
+    set_scene"title"
 end
 
 function _draw()
@@ -39,7 +39,7 @@ end
 function message_update()
     message_time += 1
     if message_time >= 150 then
-        set_scene("title")
+        set_scene"title"
     end
 end
 

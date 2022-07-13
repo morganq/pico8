@@ -1,4 +1,4 @@
-level_colors = split("6,9,14,11")
+level_colors = split"6,9,14,11"
 
 function create_herospec(name, pos, pips)
     return {
@@ -334,8 +334,8 @@ function create_hero(name, pips, gpos, team, index_on_team)
             -- Attack speed cap
             self.attack_speed = min(self.attack_speed, 4)
 
-            self.x = mid(self.x, grid_offset[1], grid_offset[1] + grid_size * dimensions[1])
-            self.y = mid(self.y, grid_offset[2], grid_offset[2] + grid_size * dimensions[2])
+            self.x = mid(self.x, grid_offset_x, grid_offset_x + arena_width)
+            self.y = mid(self.y, grid_offset_y, grid_offset_y + arena_height)
 
             -- Stun
             if self.stun > 0 then
@@ -453,7 +453,7 @@ function create_hero(name, pips, gpos, team, index_on_team)
 
     h.health = h.max_health
 
-    local base_stat_names = split("max_health,max_mana,damage,attack_speed,speed")
+    local base_stat_names = split"max_health,max_mana,damage,attack_speed,speed"
     for sn in all(base_stat_names) do
         h['base_'..sn] = h[sn]
     end

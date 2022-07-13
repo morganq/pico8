@@ -10,7 +10,6 @@ function make_attack_projectile(a, b, time, damage, spri)
         damage = damage,
         d = sqrt(hd(a,b)),
         draw = function(self)
-            --circfill(, 2, 2)
             palt(0b0000000000000001)
             local flipx = false
             local flipy = false
@@ -77,9 +76,8 @@ function make_projectile(x, y, dx, dy, color, on_hit, rad)
         time = 0,
         rad = rad or 3,
         color = color,
-        draw = function(self)
-            local x, y = tpx(self.x), tpy(self.y)
-            circfill(x, y, self.rad, self.color)
+        draw = function(self) 
+            circfill(tpx(self.x), tpy(self.y), self.rad, self.color)
         end,
         update = function(self)
             self.time += 1
@@ -105,21 +103,19 @@ function make_projectile(x, y, dx, dy, color, on_hit, rad)
 end
 
 function collide_ents()
-    local rad2 = 8
+    local rad2 = 5
     local h = arena.heroes
     for i = 1, #h do
         for j = i + 1, #h do
             local a,b = h[i], h[j]
             if a.alive and b.alive then
-                local dsq = hd(a,b)
-                if dsq < rad2^2 then
-                    local dx, dy = b.x - a.x, b.y - a.y
-                    local d = sqrt(dsq)
-                    local ndx, ndy = dx/d,dy/d
-                    a.x = (b.x + a.x) / 2 - ndx * rad2 / 2
-                    a.y = (b.y + a.y) / 2 - ndy * rad2 / 2
-                    b.x = (b.x + a.x) / 2 + ndx * rad2 / 2
-                    b.y = (b.y + a.y) / 2 + ndy * rad2 / 2                
+                local d = sqrt(hd(a,b))
+                if d < rad2 then
+                    local ndx, ndy, mpx, mpy = (b.x - a.x)/d * rad2 / 2,(b.y - a.y)/d * rad2 / 2, (b.x + a.x) / 2, (b.y + a.y) / 2
+                    a.x = mpx - ndx
+                    a.y = mpy - ndy
+                    b.x = mpx + ndx
+                    b.y = mpy + ndy
                 end
             end
         end
@@ -173,13 +169,13 @@ function sim_update()
         if sim_done_timer <= 0 then
             if match.wins >= match.wins_needed then
                 global_message = "you win! :D"
-                set_scene("message")
+                set_scene"message"
             elseif match.losses >= match.losses_needed then
                 global_message = "you lose! :("
-                set_scene("message")
+                set_scene"message"
             else
                 start_shop_turn()
-                set_scene("shop")
+                set_scene"shop"
             end
         end
         return 
@@ -192,8 +188,7 @@ function sim_update()
         end
     end
 
-    alive_mine = 0
-    alive_enemy = 0
+    local alive_mine, alive_enemy = 0,0
     for hero in all(arena.heroes) do
         if not hero.dead then
             if hero.team == arena.my_team then alive_mine += 1 else alive_enemy += 1 end
@@ -225,10 +220,7 @@ function sim_draw()
         print("defeat", 52, 43 - t, 8)
     end
 
-    local max_damage = 200
-    local max_heal = 100
-    local y = 4
-    local stats = {}
+    local max_damage, max_heal, y, stats = 200, 100, 4, {}
     for h in all(arena.heroes) do
         if h.team == arena.my_team and (h.stat_damage > 0 or h.stat_heal > 0) then
             max_damage = max(max_damage, h.stat_damage)

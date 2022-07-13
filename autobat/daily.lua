@@ -8,7 +8,7 @@ local mods = {
     {"+$ range", {1,2}, function(h,v) h.range += v; h.ult_range += v end}
 }
 
-local places = split("1st,2nd,3rd,4th,5th,6th,7th,8th,9th")
+local places = split"1st,2nd,3rd,4th,5th,6th,7th,8th,9th"
 
 function get_daily_mutators()
     srand(stat(91) * 50 + stat(92))
@@ -19,18 +19,7 @@ function get_daily_mutators()
         mutators[index] = {mod[3], val}
         local s = split(mod[1], "$")
         st ..= places[index] .." hero: " .. s[1] .. val .. s[2] .. "\n"
-        --st ..= interp("% hero: % % %\n", places[index], s[1], val, s[2])
         index += rnd(2)\1 + 1
     end
     return mutators, st
-end
-
-function get_daily_team_progression()
-    srand(stat(91) * 50 + stat(92))
-    local progression, team = {}, {}
-    for i = 1, 20 do
-        team = do_ai_team_round(team, i, i \ 3)
-        add(progression, team)
-    end
-    return progression
 end

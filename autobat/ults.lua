@@ -100,7 +100,7 @@ heroults = {
     function(h) -- m
         h.target = rnd(enemies(h))
         h.target:apply_effect(make_stat_add_effect("dot", h.ult_value, 9999))
-        h.stat_damage += h.ult_value * 12 -- total hack
+        h.stat_damage += h.ult_value * 7 -- total hack
         make_circle_particle(h.target.x, h.target.y, 0, 8, h)
         sfx(23)
     end,

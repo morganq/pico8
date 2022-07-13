@@ -12,7 +12,6 @@ function do_ai_team_round(old_team, round_num, money_bonus)
     local team = {}
     for h in all(old_team) do add(team, create_herospec(h.name, h.pos, h.pips)) end
     function incpips(h) h.pips = min(h.pips + 1, 7) end
-
     while money >= 3 do
         if #team < max_heroes then
             local initial = chr(rnd(26)\1 + 97)
@@ -40,4 +39,14 @@ function do_ai_team_round(old_team, round_num, money_bonus)
 
     return team 
 
+end
+
+function get_ai_team_progression()
+    srand(stat(91) * 50 + stat(92))
+    local progression, team = {}, {}
+    for i = 1, 20 do
+        team = do_ai_team_round(team, i, i \ 3)
+        add(progression, team)
+    end
+    return progression
 end

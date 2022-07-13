@@ -5,7 +5,6 @@ function create_shop()
         end
     end
     match.shop = {}
-    -- Pull 5 random heroes from the deck
     for i = 1,5 do
         local ind = rnd(#match.shop_deck)\1 + 1
         local hero = match.shop_deck[ind]
@@ -14,24 +13,13 @@ function create_shop()
     end
 end
 
+-- OPT: just pick a random spot entirely rather than worrying about range
 function find_open_spot(hs, team)
     local open_spot, i = nil, 0
-    while open_spot == nil do
-        local random_x = rnd(6) \ 1
-        local random_y = 0
-        if i > 6 then
-            random_y = mid(2 + hs.range + rnd(5)\1 - 2, 3, 5)
-        elseif i > 3 then
-            random_y = mid(2 + hs.range + rnd(3)\1 - 1, 3, 5)
-        else
-            if hs.range <= 1 then
-                random_y = mid(2 + hs.range, 3, 5)
-            else
-                random_y = mid(2 + hs.range + rnd(3)\1 - 1, 3, 5)
-            end
-            
-        end 
+    while true do
         local occupied = false
+        local random_x, random_y = rnd(6) \ 1, rnd(3) \ 1 + 3
+        
         for hs in all(team) do
             if hs.pos[1] == random_x and hs.pos[2] == random_y then
                 occupied = true
@@ -39,11 +27,10 @@ function find_open_spot(hs, team)
             end
         end
         if not occupied then
-            open_spot = {random_x, random_y}
+            return {random_x, random_y}
         end
         i += 1
     end    
-    return open_spot
 end
 
 function buy_hero(index)
@@ -94,13 +81,16 @@ function buy_hero(index)
     match.money -= 3
 end
 
-function draw_hero_card(x, y, hero, selected)
+function draw_hero_card(x, y, hero, selected, owns)
     local w, h, bgcolor, fgcolor = 22, 30, 6, 5
     if hero then
         bgcolor = 15
         fgcolor = 4
     end
     if selected then y -= 2 end
+    if owns then
+        bgcolor = 10
+    end    
     rectfill(x, y, x + w, y + h, bgcolor)
     rect(x,y,x+w,y+h,fgcolor)
     if hero then
@@ -110,7 +100,7 @@ function draw_hero_card(x, y, hero, selected)
         print(' ' .. sub(name,2), x + 12 - #name * 2, y+ty, 2)
         local spri = 64 + ord(sub(name,1,1)) - 96
         
-        pal({7,7,7,7,7,7,7,7,7,7,7,7,7,7,7})
+        pal(split"7,7,7,7,7,7,7,7,7,7,7,7,7,7,7")
         spr(spri, x + 7, y + 3)
         spr(spri, x + 9, y + 3)
         spr(spri, x + 8, y + 2)
@@ -134,7 +124,6 @@ function hero_index_under_cursor()
             return i
         end
     end
-    return nil
 end
 
 function shop_update_repositioning()
@@ -202,7 +191,6 @@ function shop_update_cards()
 end
 
 function shop_update()
-    match.shop_time_left -= 1/30
     tf += 1
     if modal_open then
         if btnp(0) or btnp(1) then modal_option = 3 - modal_option end
@@ -215,7 +203,7 @@ function shop_update()
         end
     else
         shop_update_cards()
-        if btnp(2) then -- and #match.team > 0 then
+        if btnp(2) then
             repo_row = 1
             repo_cursor = {shop_selected, 5}
         end            
@@ -227,7 +215,7 @@ function shop_update()
             modal_option = 1
         else
             start_sim_turn()
-            set_scene("sim")            
+            set_scene"sim"            
         end
     end
 
@@ -236,7 +224,7 @@ function shop_update()
             modal_open = true
         else
             start_sim_turn()
-            set_scene("sim")
+            set_scene"sim"
         end
     end
 end
@@ -286,7 +274,11 @@ function shop_draw()
         print("sell", 63, 92, c2)
     else
         for i = 1, 5 do
-            draw_hero_card(i * 20, 80, match.shop[i], i == shop_selected and repo_row == 2)
+            local has_hero = false
+            for hs in all(match.team) do
+                if hs.name == match.shop[i] then has_hero = true end
+            end
+            draw_hero_card(i * 20, 80, match.shop[i], i == shop_selected and repo_row == 2, has_hero)
             if i == shop_selected then
                 x_pos = {i * 20 - 2, 76}
             end
@@ -333,7 +325,7 @@ function shop_draw()
         if i != nil then
             local sel = arena.heroes[i]
             draw_status_for(sel.initial, sel:get_level_filled_total_pips())
-            local fields = split("max_health,damage,attack_speed,max_mana")
+            local fields = split"max_health,damage,attack_speed,max_mana"
             for i = 1,4 do
                 print(sel[fields[i]] * 10 \ 1 / 10, i * 30 - 22, 1, 0)
                 spr(127+i, i * 30 - 30, 1)
@@ -348,8 +340,7 @@ function shop_draw()
         end
     end
 
-    spr(213, 104, 60, 2, 1)
-    print("🅾️", 109, 61, tf \ 15 % 2 == 0 and 0 or 7)
+    spr(tf % 24 > 12 and 213 or 197, 104, 60, 2, 1)
 
     if modal_open then
         rectfill(0, 50, 127, 78, 9)

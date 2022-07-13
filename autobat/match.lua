@@ -1,4 +1,4 @@
-round_heroes = split("2,3,4,4,5,5,6,6,7,7,8,8,9")
+round_heroes = split"2,3,4,4,5,5,6,6,7,7,8,8,9"
 
 function serialize_team(team)
     local s = ""
@@ -12,8 +12,7 @@ end
 
 function deserialize_team(s)
     local team = {}
-    local s_heroes = split(s, "/")
-    for s_hero in all(s_heroes) do
+    for s_hero in all(split(s, "/")) do
         local s_parts = split(s_hero, ":")
         add(team, create_herospec(
             sub(s_parts[1],1,1),
@@ -25,16 +24,11 @@ function deserialize_team(s)
 end
 
 function start_shop_turn()
-    --match.max_heroes = min(match.max_heroes + 1, 9)
     match.round += 1
-    if round_heroes[match.round] then
-        match.max_heroes = round_heroes[match.round]
-    end
+    match.max_heroes = round_heroes[match.round] or 9
     match.turn = "shop"
-    match.shop_time_left = 30
     match.money = 8
     create_arena(match.team)
-    --printh(#match.shop_deck, "test.txt")
 end
 
 function start_sim_turn()
@@ -43,54 +37,44 @@ function start_sim_turn()
 
     -- Load the enemy
     if match.mode == "arena" then
-        local team2 = make_ai_team(match.round + (match.difficulty - 1))
-        create_arena(match.team, team2)
-    elseif match.mode == "head2head" then
-        local bonus = 0
-        if match.difficulty == 2 then
-            bonus = match.round \ 2
-        end
-        match.running_enemy_team = do_ai_team_round(match.running_enemy_team, match.round, bonus)
-        create_arena(match.team, match.running_enemy_team)
-    else -- daily
-        create_arena(match.team, daily_progression[match.round])
+        create_arena(match.team, make_ai_team(match.round + (match.difficulty - 1)))
+    else -- Head to head
+        create_arena(match.team, match.progression[match.round])
     end
 end
 
 function start_match(gamemode, difficulty, mutators, progression)
-    local modes = {'arena','head2head','daily_challenge'}
     match = {
-        mode = modes[gamemode],
+        mode = gamemode,
         difficulty = difficulty,
         mutators = mutators,
         round = 0,
         turn = "shop",
-        seed = game_seed,
         team = {},
-
         money = 0,
         max_heroes = 1,
-        wins_needed = gamemode == 2 and 7 or 9,
-        losses_needed = gamemode == 2 and 7 or 5,
+        wins_needed = gamemode == "arena" and 9 or 7,
+        losses_needed = gamemode == "arena" and 5 or 7,
         wins = 0,
         losses = 0,
-
         shop_deck = {},
         shop = {},
-        shop_time_left = 0,
-
         sim_time_left = 0,
-
-        running_enemy_team = {},
+        progression = progression
     }
+    --[[
+    local s = ""
     for i = 97,122 do
         local hn = chr(i)
         for j = 0, 14 do
+            s ..= hn .. ","
             add(match.shop_deck, hn)
         end
     end
-    srand(match.seed)
-    daily_progression = progression
+    printh(s, "test.txt")
+    ]]--
+    match.shop_deck = split"a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,d,d,d,d,d,d,d,d,d,d,d,d,d,d,d,e,e,e,e,e,e,e,e,e,e,e,e,e,e,e,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,g,g,g,g,g,g,g,g,g,g,g,g,g,g,g,h,h,h,h,h,h,h,h,h,h,h,h,h,h,h,i,i,i,i,i,i,i,i,i,i,i,i,i,i,i,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,l,l,l,l,l,l,l,l,l,l,l,l,l,l,l,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,q,q,q,q,q,q,q,q,q,q,q,q,q,q,q,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,t,t,t,t,t,t,t,t,t,t,t,t,t,t,t,u,u,u,u,u,u,u,u,u,u,u,u,u,u,u,v,v,v,v,v,v,v,v,v,v,v,v,v,v,v,w,w,w,w,w,w,w,w,w,w,w,w,w,w,w,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,y,y,y,y,y,y,y,y,y,y,y,y,y,y,y,z,z,z,z,z,z,z,z,z,z,z,z,z,z,z"
+    srand(game_seed)
     create_shop()
     start_shop_turn()
 end

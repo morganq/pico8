@@ -8,13 +8,15 @@ difficulty = 1
 function title_update()
     tt += 1
     if btnp(4) then
-        if gamemode == 3 then
-            start_match(gamemode, 1, get_daily_mutators(), get_daily_team_progression())
+        if gamemode == 1 then
+            start_match('arena', difficulty)
+        elseif gamemode == 2 then
+            start_match('head_to_head', difficulty, {}, get_ai_team_progression())
         else
-            start_match(gamemode, difficulty)
+            start_match('daily_challenge', 1, get_daily_mutators(), get_ai_team_progression())
         end
         
-        set_scene("shop")
+        set_scene"shop"
     end
     if btnp(2) and gamemode > 1 then gamemode -= 1; difficulty = 1 end
     if btnp(3) and gamemode < 3 then gamemode += 1; difficulty = 1 end
@@ -34,7 +36,7 @@ function title_draw()
 
     print("- mode -", 48, y, 4)
     rectfill(0, y - 2 + gamemode * 10, 127, y + 6 + gamemode * 10, tt \ 12 % 2 == 0 and 4 or 2)
-    local names = split("arena,head to head,head to head daily challenge")
+    local names = split"arena,head to head,head to head daily challenge"
     for i = 1,3 do
         print(names[i], 4, y + i * 10, 9)
         if gamemode == i and gamemode < 3 then
@@ -55,8 +57,7 @@ function title_draw()
         ss = "> "..stat(91).."/"..stat(92).." challenge:\n" .. mut_string
     end
     print(ss, 6, 96, 13)
-    spr(213, 108, 117, 2, 1)
-    print("🅾️", 113, 118, tt \ 12 % 2 == 0 and 0 or 7)
+    spr(tt % 24 > 12 and 213 or 197, 108, 117, 2, 1)
 end
 
 function title_finish()

@@ -1,16 +1,5 @@
-sample_team = "u1:33/o1:20/z1:31"
-
-dimensions = {6,6}
 grid_size = 11
-grid_offset = {32, 9}
-team_colors = {12, 10}
-
-placement_coords = {}
-for x = 0, 5 do
-    for y = 0, 2 do
-        add(placement_coords, {x,y + 3})
-    end
-end
+arena_width, arena_height, grid_offset_x, grid_offset_y = 6 * grid_size, 6 * grid_size, 32, 9
 
 function tpx(x)
     if arena.my_team == 1 then return x end
@@ -18,7 +7,7 @@ function tpx(x)
 end
 function tpy(y)
     if arena.my_team == 1 then return y end
-    return grid_size * 6 - (y - grid_offset[2]) + grid_offset[2]
+    return grid_size * 6 - (y - grid_offset_y) + grid_offset_y
 end
 
 function serialize_gpt(pt)
@@ -32,15 +21,15 @@ end
 
 function g2p(gx, gy)
     return {
-        gx * grid_size + grid_offset[1],
-        gy * grid_size + grid_offset[2]
+        gx * grid_size + grid_offset_x,
+        gy * grid_size + grid_offset_y
     }
 end
 
 function p2g(px, py)
     return {
-        (px - grid_offset[1]) \ grid_size,
-        (py - grid_offset[2]) \ grid_size
+        (px - grid_offset_x) \ grid_size,
+        (py - grid_offset_y) \ grid_size
     }
 end
 
@@ -87,8 +76,8 @@ function draw_arena()
     for hero in all(arena.heroes) do
         add(ent_rows[hero.y\1], hero)
     end
-    rect(grid_offset[1] - 2, grid_offset[2] - 2, grid_offset[1] + grid_size * 6, grid_offset[2] + grid_size * 6, 5)
-    rectfill(grid_offset[1] - 1, grid_offset[2] - 1, grid_offset[1] + grid_size * 6 - 1, grid_offset[2] + grid_size * 6 - 1, 7)
+    rect(grid_offset_x - 2, grid_offset_y - 2, grid_offset_x + grid_size * 6, grid_offset_y + grid_size * 6, 5)
+    rectfill(grid_offset_x - 1, grid_offset_y - 1, grid_offset_x + grid_size * 6 - 1, grid_offset_y + grid_size * 6 - 1, 7)
     for row = 0, 5 do
         for col = 0, 5 do
             local ppos = g2p(row, col)
